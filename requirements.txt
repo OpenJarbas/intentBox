@@ -1,0 +1,4 @@
+adapt-parser==0.3.3
+padatious==0.4.6
+fann2==1.0.7
+padaos==0.1.9
