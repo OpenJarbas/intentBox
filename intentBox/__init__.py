@@ -22,11 +22,19 @@ class Segmenter:
         self.segmenter = None
         self.solver = None
         if self.use_deepseg:
-            from deepsegment import DeepSegment
-            self.segmenter = DeepSegment(model)
+            if model == join(dirname(__file__), "deepsegment_eng_fra_ita_v1/config.json") and\
+                    (not lang.startswith("en") or not lang.startswith("fr") or not lang.startswith("it")):
+                    print("ERROR: unsupported deepsegment language")
+            else:
+                from deepsegment import DeepSegment
+                self.segmenter = DeepSegment(model)
         if self.use_coref:
-            from intentBox.coreference import CoreferenceSolver
-            self.solver = CoreferenceSolver()
+            if not lang.startswith("en"):
+                print("ERROR: unsupported coreference resolution language")
+            else:
+                from intentBox.coreference import CoreferenceSolver
+                # TODO check for neuralcoref, don't use the webdemos
+                self.solver = CoreferenceSolver()
 
     @staticmethod
     def _extract(text, markers):
@@ -71,7 +79,7 @@ class Segmenter:
     def segment(self, text):
         if self.use_coref and self.solver:
             text = self.solver.replace_coreferences(text)
-        if self.use_deepseg:
+        if self.use_deepseg and self.segmenter:
             text = self.deepsegmentation(text)
         if self.use_markers:
             text = self.extract_candidates(text, self.lang)
