@@ -381,27 +381,11 @@ for sent in sentences:
     print("_______________________________")
 
 print("# _______________________________")
-print("# CALCULATE MAIN AND SECONDARY INTENTS")
-print("# _______________________________")
-for sent in sentences:
-    print("UTTERANCE:", sent)
-    pprint(intents.intent_remainder(sent))
-    print("_______________________________")
-
-print("# _______________________________")
 print("# SEGMENT AND CALCULATE BEST INTENTS")
 print("# _______________________________")
 for sent in sentences:
     print("UTTERANCE:", sent)
     pprint(intents.calc_intents(sent))
-    print("_______________________________")
-
-print("# _______________________________")
-print("# SEGMENT AND CALCULATE MAIN AND SECONDARY INTENTS")
-print("# _______________________________")
-for sent in sentences:
-    print("UTTERANCE:", sent)
-    pprint(intents.intents_remainder(sent))
     print("_______________________________")
 
 ```
