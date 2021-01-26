@@ -1,5 +1,4 @@
 from intentBox.container import IntentBox
-from mycroft_bus_client import Message
 from os.path import expanduser, join
 from os import listdir, walk
 
@@ -55,36 +54,6 @@ class CollisionDetector:
                 intents[idx] = None
         return [i for i in intents if i]
 
-
-class BusCollisionDetector:
-    def __init__(self, bus,  config=None):
-        self.bus = bus
-        self.config_core = config or {}
-
-    @property
-    def skills_config(self):
-        return self.config_core.get("skills", {"csm": {"directory": "skills"}})
-
-    @property
-    def skills_path(self):
-        data_dir = self.config_core.get("data_dir", expanduser("~/chatterbox"))
-        return expanduser(join(data_dir, self.skills_config["csm"]["directory"]))
-
-    @property
-    def blacklisted_skills(self):
-        return self.skills_config.get("blacklisted_skills", [])
-
-    def triggered_intents(self, utterance, min_conf=0.5):
-        reply = self.bus.wait_for_response(
-            Message("intentbox.get_intent",
-                    {"utterance": utterance}),
-            reply_type="intentbox.intent",
-            timeout=None)
-        if reply:
-            intents = reply.data.get("intents", [])
-        else:
-            intents = []
-        return intents
 
 
 if __name__ == "__main__":
