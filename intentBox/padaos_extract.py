@@ -1,101 +1,90 @@
-from intentBox import IntentExtractor, Segmenter
+from intentBox import IntentExtractor
 from padaos import IntentContainer
+from intentBox.utils import LOG
 
 
 class PadaosExtractor(IntentExtractor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.container = IntentContainer()
+        self.registered_intents = []
 
-    def register_entity(self, name, samples):
-        self.container.add_entity(name, samples)
+    def detach_intent(self, intent_name):
+        if intent_name in self.registered_intents:
+            LOG.debug("Detaching padaous intent: " + intent_name)
+            self.container.remove_intent(intent_name)
+            self.registered_intents.remove(intent_name)
 
-    def register_intent(self, name, samples):
-        self.container.add_intent(name, samples)
+    def detach_skill(self, skill_id):
+        LOG.debug("Detaching padaos skill: " + str(skill_id))
+        remove_list = [i for i in self.registered_intents if skill_id in i]
+        for i in remove_list:
+            self.detach_intent(i)
 
-    def calc_intent(self, utterance):
-        return self.container.calc_intent(utterance)
+    def register_entity(self, entity_name, samples=None):
+        samples = samples or [entity_name]
+        self.container.add_entity(entity_name, samples)
+
+    def register_intent(self, intent_name, samples=None):
+        samples = samples or [intent_name]
+        print(intent_name, samples)
+        self.container.add_intent(intent_name, samples)
+        self.registered_intents.append(intent_name)
+
+    def register_entity_from_file(self, entity_name, file_name):
+        with open(file_name) as f:
+            samples = f.read().split("\n")
+        self.register_entity(entity_name, samples)
+
+    def register_intent_from_file(self, intent_name, file_name):
+        with open(file_name) as f:
+            samples = f.read().split("\n")
+        self.register_intent(intent_name, samples)
+
+    def calc_intent(self, utterance, min_conf=0.5):
+        utterance = utterance.strip() # spaces should not mess with exact matches
+        intent = self.container.calc_intent(utterance)
+        if intent["name"]:
+            intent["intent_engine"] = "padaos"
+            intent["intent_type"] = intent.pop("name")
+            intent["utterance"] = utterance
+            modifier = len(self.segmenter.segment(utterance))
+            intent["conf"] = 1 / modifier - 0.1
+            return intent
+        return {'conf': 0,
+                'intent_type': 'unknown',
+                'entities': {},
+                'utterance': utterance,
+                'intent_engine': 'padaos'}
+
+    def intent_scores(self, utterance):
+        utterance = utterance.strip() # spaces should not mess with exact matches
+        intents = []
+        bucket = self.calc_intents(utterance)
+        for utt in bucket:
+            intent = bucket[utt]
+            if not intent:
+                continue
+            intents.append(intent)
+        return intents
 
     def calc_intents(self, utterance, min_conf=0.5):
+        utterance = utterance.strip() # spaces should not mess with exact matches
         bucket = {}
         for ut in self.segmenter.segment(utterance):
-            intent = self.container.calc_intent(ut).__dict__
-            if intent["conf"] < min_conf:
-                bucket[ut] = None
-            else:
-                intent.pop("sent")
-                bucket[ut] = intent
+            intent = self.calc_intent(ut)
+            bucket[ut] = intent
         return bucket
 
     def calc_intents_list(self, utterance):
+        utterance = utterance.strip() # spaces should not mess with exact matches
         bucket = {}
         for ut in self.segmenter.segment(utterance):
-            intents = list(self.container.calc_intents(ut))
-            for idx, int in enumerate(intents):
-                intents[idx]["conf"] = 1
-                if not intents[idx].get("name"):
-                    intents[idx]["conf"] = 0
-            bucket[ut] = intents
+            bucket[ut] = self.filter_intents(ut)
         return bucket
 
-
-if __name__ == "__main__":
-    from pprint import pprint
-
-    intents = PadaosExtractor()
-
-    weather = ["weather"]
-    hello = ["hey", "hello", "hi", "greetings"]
-    name = ["my name is {name}"]
-    joke = ["tell me a joke", "i want a joke", "say a joke", "tell joke"]
-    lights_on = ["turn on the lights", "lights on", "turn lights on", "turn the lights on"]
-    lights_off = ["turn off the lights", "lights off", "turn lights off", "turn the lights off"]
-    door_on = ["open the door", "open door", "open the doors"]
-    door_off = ["close the door", "close door", "close the doors"]
-    music = ["play music", "play some songs", "play heavy metal", "play some jazz", "play rock"]
-
-    intents.register_intent("weather", weather)
-    intents.register_intent("hello", hello)
-    intents.register_intent("name", name)
-    intents.register_intent("joke", joke)
-    intents.register_intent("lights_on", lights_on)
-    intents.register_intent("lights_off", lights_off)
-    intents.register_intent("door_open", door_on)
-    intents.register_intent("door_close", door_off)
-    intents.register_intent("play_music", music)
-
-    sentences = [
-        "tell me a joke and say hello",
-        "turn off the lights, open the door",
-        "nice work! get me a beer",
-        "Call mom tell her hello",
-        "tell me a joke and the weather",
-        "turn on the lights close the door",
-        "close the door turn off the lights",
-        "tell me a joke order some pizza",  # fail
-        "close the pod bay doors play some music"  # fail
-    ]
-
-    print("CALCULATE SINGLE INTENT")
-    for sent in sentences:
-        print("UTTERANCE:", sent)
-        pprint(intents.calc_intent(sent))
-        print("_______________________________")
-
-    print("CALCULATE MAIN AND SECONDARY INTENTS")
-    for sent in sentences:
-        print("UTTERANCE:", sent)
-        pprint(intents.intent_remainder(sent))
-        print("_______________________________")
-
-    print("SEGMENT AND CALCULATE ALL INTENTS")
-    for sent in sentences:
-        print("UTTERANCE:", sent)
-        pprint(intents.calc_intents_list(sent))
-        print("_______________________________")
-
-    print("SEGMENT AND CALCULATE MAIN AND SECONDARY INTENTS")
-    for sent in sentences:
-        print("UTTERANCE:", sent)
-        pprint(intents.intents_remainder(sent))
-        print("_______________________________")
+    def manifest(self):
+        # TODO vocab, skill ids, intent_data
+        return {
+            "intent_names": self.registered_intents
+        }

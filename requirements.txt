@@ -1,4 +1,7 @@
-adapt-parser==0.3.3
-padatious==0.4.6
-fann2==1.0.7
-padaos==0.1.9
+adapt-parser>=0.3.3
+padatious>=0.4.6
+fann2>=1.0.7
+padaos>=0.1.9
+git+https://github.com/HelloChatterbox/lingua-franca@0.4.0rc1
+requests
+mycroft-messagebus-client

@@ -2,9 +2,9 @@ from setuptools import setup
 
 setup(
     name='intentBox',
-    version='0.1',
+    version='0.2',
     packages=['intentBox'],
-    url='https://github.com/GigundoAI/intentBox',
+    url='https://github.com/HelloChatterbox/intentBox',
     license='',
     author='jarbasai',
     author_email='jarbasai@mailfence.com',
