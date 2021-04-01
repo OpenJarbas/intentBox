@@ -1,5 +1,10 @@
 from logging import getLogger
 import os
+try:
+    from lingua_franca.parse import normalize
+except:
+    def normalize(text, *args, **kwargs):
+        return text
 
 LOG = getLogger("intentBox")
 

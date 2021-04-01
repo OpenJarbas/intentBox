@@ -1,6 +1,5 @@
 from intentBox import IntentExtractor
-from intentBox.utils import LOG
-from lingua_franca.parse import normalize
+from intentBox.utils import LOG, normalize
 import time
 from adapt.intent import IntentBuilder
 from adapt.context import ContextManagerFrame

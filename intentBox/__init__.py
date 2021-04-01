@@ -1,7 +1,6 @@
 import abc
 import re
-from intentBox.utils import LOG, flatten
-from lingua_franca.parse import normalize
+from intentBox.utils import LOG, flatten, normalize
 from intentBox.segmenter import Segmenter
 
 
