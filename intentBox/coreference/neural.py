@@ -1,4 +1,6 @@
 from intentBox.coreference.base import CoreferenceSolver
+import spacy
+import neuralcoref
 
 
 class NeuralCoreferenceSolver(CoreferenceSolver):
@@ -8,12 +10,19 @@ class NeuralCoreferenceSolver(CoreferenceSolver):
     def __init__(self, nlp=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # TODO localize
-        if nlp:
-            self.bind(nlp)
+        self.bind(nlp)
+
+    @staticmethod
+    def load_model(model="en"):
+        # Load your usual SpaCy model (one of SpaCy English models)
+        nlp = spacy.load(model)
+        # Add neural coref to SpaCy's pipe
+        neuralcoref.add_to_pipe(nlp)
+        return nlp
 
     @classmethod
-    def bind(cls, nlp):
-        CoreferenceSolver.nlp = nlp
+    def bind(cls, nlp=None):
+        CoreferenceSolver.nlp = nlp or NeuralCoreferenceSolver.load_model()
 
     @classmethod
     def replace_coreferences(cls, text):
