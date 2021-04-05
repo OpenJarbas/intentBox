@@ -20,8 +20,6 @@ class Segmenter:
             if not lang.startswith("en"):
                 LOG.error("unsupported coreference resolution language")
             else:
-
-                # TODO check for neuralcoref, don't use the webdemos
                 self.solver = CoreferenceSolver()
 
     @staticmethod

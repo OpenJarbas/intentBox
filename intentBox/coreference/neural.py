@@ -2,6 +2,7 @@ from intentBox.coreference.base import CoreferenceSolver
 
 
 class NeuralCoreferenceSolver(CoreferenceSolver):
+    """https://github.com/huggingface/neuralcoref"""
     nlp = None
 
     def __init__(self, nlp=None, *args, **kwargs):

@@ -5,7 +5,7 @@ from intentBox.utils import LOG, resolve_resource_file
 
 
 class IntentBox(IntentExtractor):
-    def __init__(self, engines=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._load_engines()
         # optional entities automatically tagged
