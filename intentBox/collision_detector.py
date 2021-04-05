@@ -1,2 +1,2 @@
 # backwards compat
-from intentBox.utils.collision_detector import *
+from intentBox.intent_assistant.collision_detector import *
