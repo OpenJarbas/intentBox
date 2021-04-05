@@ -1,22 +1,31 @@
 from intentBox.adapt_extract import AdaptExtractor
-from intentBox.padatious_extract import PadatiousExtractor
 from intentBox.padaos_extract import PadaosExtractor
-from intentBox import IntentExtractor
+from intentBox.parsers.template import IntentExtractor
 from intentBox.utils import LOG, resolve_resource_file
 
 
 class IntentBox(IntentExtractor):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, engines=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.adapt = AdaptExtractor(config=self.config)
-        self.padatious = PadatiousExtractor(config=self.config)
-        self.padaos = PadaosExtractor(config=self.config)
-        self.adapt.segmenter = self.padatious.segmenter = \
-            self.padaos.segmenter = self.segmenter
-
+        self._load_engines()
         # optional entities automatically tagged
         # WARNING might artificially increase confidence of adapt intents and skew results
         self._auto = []
+
+    def _load_engines(self):
+        # TODO plugin system
+        self.adapt = AdaptExtractor(config=self.config)
+        self.padaos = PadaosExtractor(config=self.config)
+        try:
+            from intentBox.padatious_extract import PadatiousExtractor
+            self.padatious = PadatiousExtractor(config=self.config)
+        except ImportError:
+            # padatious not installed (optional)
+            # use a dummy engine
+            self.padatious = IntentExtractor(config=self.config)
+
+        self.adapt.segmenter = self.padaos.segmenter = \
+            self.padatious.segmenter = self.segmenter
 
     @property
     def context_manager(self):
@@ -153,6 +162,7 @@ class IntentBox(IntentExtractor):
         self.register_padaos_entity(name, samples)
 
     def calc_intent(self, utterance):
+        # TODO plugin system
         utterance = utterance.strip() # spaces should not mess with exact matches
 
         # best intent
@@ -171,21 +181,21 @@ class IntentBox(IntentExtractor):
 
         LOG.debug("Padaos match: {intent}".format(intent=p2))
 
-        if p2["conf"] >= 0.8:
+        if p2 and p2["conf"] >= 0.8:
             return p2
-        if a["conf"] >= 0.7:
+        if a and a["conf"] >= 0.7:
             return a
-        if p["conf"] >= 0.8:
+        if p and p["conf"] >= 0.8:
             return p
-        if a["conf"] > 0.4 or 0 < p["conf"] < a["conf"]:
+        if a and a["conf"] > 0.4 or (a and p and 0 < p["conf"] < a["conf"]):
             return a
-        if p["conf"] > 0.6:  # lots of false positives on 0.5 range
+        if p and p["conf"] > 0.6:  # lots of false positives on 0.5 range
             return p
-        if a["conf"]:  # adapt regex/context is often low confidence
+        if a and a["conf"]:  # adapt regex/context is often low confidence
             return a
-        if p2["conf"] > 0.3:
+        if p2 and p2["conf"] > 0.3:
             return p2
-        if p["conf"] > 0.3:
+        if p and p["conf"] > 0.3:
             return p
         return None
 

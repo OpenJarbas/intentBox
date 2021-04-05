@@ -1,14 +1,25 @@
 from logging import getLogger
 import os
 try:
-    from lingua_franca.parse import normalize
+    from lingua_nostra.parse import normalize
 except:
-    def normalize(text, *args, **kwargs):
-        return text
+    try:
+        from lingua_franca.parse import normalize
+    except:
+        def normalize(text, *args, **kwargs):
+            return text
 
 LOG = getLogger("intentBox")
 
 flatten = lambda l: [item for sublist in l for item in sublist]
+
+
+def tokenize(text):
+    # very simple, tokenize punctuation
+    punct = [".", ",", "", "-", "!", "?"]
+    for p in punct:
+        text = text.replace(p, " " + p + " ")
+    return [w for w in text.split(" ") if w.strip()]
 
 
 def resolve_resource_file(res_name):
@@ -39,8 +50,8 @@ def resolve_resource_file(res_name):
     if os.path.isfile(res_name):
         return res_name
 
-    # Now look for ~/.chatterbox/res_name (in user folder)
-    filename = os.path.expanduser("~/.chatterbox/" + res_name)
+    # Now look for ~/chatterbox/res_name (in user folder)
+    filename = os.path.expanduser("~/chatterbox/" + res_name)
     if os.path.isfile(filename):
         return filename
 

@@ -1,0 +1,1 @@
+SEGMENTATION_MARKERS_PT = [" e ", " depois ", " a seguir ", " de seguida "]
