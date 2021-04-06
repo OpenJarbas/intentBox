@@ -5,7 +5,7 @@ class CoreferenceSolver:
     prev_sentence = ""
     prev_solved = ""
 
-    def __init__(self, lang="en-us"):
+    def __init__(self, lang="en"):
         self.lang = lang
 
     @staticmethod
@@ -48,19 +48,16 @@ class CoreferenceSolver:
         return bucket
 
     @classmethod
-    def replace_coreferences(cls, text):
+    def replace_coreferences(cls, text, lang="en"):
         cls.prev_sentence = text
-        if text in cls.cache:
-            return cls.cache[text]
-        else:
-            return text
+        return cls.solve_corefs(text, lang=lang)
 
     @classmethod
-    def replace_coreferences_with_context(cls, text):
+    def replace_coreferences_with_context(cls, text, lang="en"):
         if text in cls.cache:
             solved = cls.cache[text]
         else:
-            solved = text
+            solved = cls.solve_corefs(text, lang=lang)
         extracted = cls.extract_replacements(text, solved)
         for pronoun in extracted:
             if len(extracted[pronoun]) > 0:
@@ -69,3 +66,6 @@ class CoreferenceSolver:
         cls.prev_solved = solved
         return solved
 
+    @classmethod
+    def solve_corefs(cls, text, lang="en"):
+        return text

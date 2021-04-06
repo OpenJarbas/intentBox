@@ -1,45 +1,20 @@
-from intentBox.coreference.neural import NeuralCoreferenceSolver
-from pprint import pprint
+from intentBox.coreference.pronoun_postags import PronounCoreferenceSolver
 
 
-text = "My sister has a dog. She loves him"
-print(NeuralCoreferenceSolver.replace_coreferences(text))
-# My sister has a dog. my sister loves a dog.
-pprint(NeuralCoreferenceSolver.contexts)
-# {'him': 'a dog', 'she': 'my sister'}
+goods = [
+    "My neighbors have a cat. It has a bushy tail.",
+    "Here is the book now take it.",
+    "The sign was too far away for the boy to read it.",
+    "Dog is man's best friend. It is always loyal.",
+    "The girl said she would take the trash out.",
+    "I voted for Nader because he is clear about his values. His ideas represent a majority of the nation. He is better than Rajeev.",
+    "Jack von Doom is one of the top candidates in the elections. His ideas are unique compared to Neha's.",
+    "Members voted for John because they see him as a good leader.",
+    "Leaders around the world say they stand for peace.",
+    "My neighbours just adopted a puppy. They care for it like a baby.",
+    "I have many friends. They are an important part of my life.",
+    "London is the capital and most populous city of England and the United Kingdom. Standing on the River Thames in the south east of the island of Great Britain, London has been a major settlement for two millennia. It was founded by the Romans, who named it Londinium."
+]
 
-text = "Turn on the light and change it to blue"
-print(NeuralCoreferenceSolver.replace_coreferences(text))
-# Turn on the light and change the light to blue
-pprint(NeuralCoreferenceSolver.contexts)
-# {'him': 'a dog', 'it': 'the light', 'she': 'my sister'}
-print(NeuralCoreferenceSolver.extract_replacements(text,
-                                             "Turn on the light and change the light to blue"))
-# {'it': ['the light']}
-
-text = "London is the capital and most populous city of England and the United Kingdom. Standing on the River Thames in the south east of the island of Great Britain, London has been a major settlement for two millennia. It was founded by the Romans, who named it Londinium."
-print(NeuralCoreferenceSolver.replace_coreferences(text))
-# London is the capital and most populous city of England and the United Kingdom. Standing on the River Thames in the south east of the island of Great Britain, London has been a major settlement for two millennia. london was founded by the Romans, who named london Londinium.
-print(NeuralCoreferenceSolver.prev_sentence)
-# London is the capital and most populous city of England and the United Kingdom. Standing on the River Thames in the south east of the island of Great Britain, London has been a major settlement for two millennia. It was founded by the Romans, who named it Londinium.
-print(
-    NeuralCoreferenceSolver.extract_replacements(NeuralCoreferenceSolver.prev_sentence,
-                                           NeuralCoreferenceSolver.replace_coreferences(
-                                               text)))
-# {'it': ['london', 'london'], 'who': ['the romans']}
-
-text = "call mom"
-print(NeuralCoreferenceSolver.replace_coreferences(text))
-# call mom
-
-text = "tell her to buy eggs"
-print(NeuralCoreferenceSolver.replace_coreferences_with_context(text))
-# tell mom to buy eggs
-
-text = "tell her to buy coffee"
-print(NeuralCoreferenceSolver.replace_coreferences_with_context(text))
-# tell mom to buy coffee
-
-text = "tell her to buy milk"
-print(NeuralCoreferenceSolver.replace_coreferences(text))
-# tell her to buy milk
+for s in goods:
+    print(PronounCoreferenceSolver.replace_coreferences(s))
