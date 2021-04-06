@@ -1,5 +1,5 @@
 from intentBox.utils import tokenize
-from intentBox.coreference.pronoun_postags import PronounCoreferenceSolver
+from intentBox.coreference.pronoun_postags import PronounCoreferenceSolver as CoreferenceSolver
 
 
 def replace_coreferences(text, smart=True, lang="en"):
@@ -20,7 +20,7 @@ def replace_coreferences(text, smart=True, lang="en"):
                 break
         if not should_solve:
             return text
-    solver = PronounCoreferenceSolver(lang)
+    solver = CoreferenceSolver(lang)
     solved = solver.replace_coreferences(text)
     if solved == text:
         return solver.replace_coreferences_with_context(text)

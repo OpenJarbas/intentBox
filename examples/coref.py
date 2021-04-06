@@ -1,4 +1,4 @@
-from intentBox.coreference.pronoun_postags import PronounCoreferenceSolver
+from intentBox.coreference import replace_coreferences
 
 
 goods = [
@@ -17,4 +17,4 @@ goods = [
 ]
 
 for s in goods:
-    print(PronounCoreferenceSolver.replace_coreferences(s))
+    print(replace_coreferences(s))
