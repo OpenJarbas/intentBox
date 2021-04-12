@@ -2,19 +2,12 @@ from logging import getLogger
 import os
 from enum import IntEnum, auto
 from difflib import SequenceMatcher
+
 try:
     import rapidfuzz
 except ImportError:
     rapidfuzz = None
 
-try:
-    from lingua_nostra.parse import normalize
-except:
-    try:
-        from lingua_franca.parse import normalize
-    except:
-        def normalize(text, *args, **kwargs):
-            return text
 
 
 from intentBox.utils.bracket_expansion import SentenceTreeParser
@@ -22,6 +15,15 @@ from intentBox.utils.bracket_expansion import SentenceTreeParser
 LOG = getLogger("intentBox")
 
 flatten = lambda l: [item for sublist in l for item in sublist]
+
+
+def normalize(text, lang='', remove_articles=False):
+    words = tokenize(text)
+    if lang and lang.startswith("en"):
+        if remove_articles:
+            removals = ["the", "a", "an", "in", "on", "at"]
+            words = [w for w in words if w.lower() not in removals]
+    return " ".join(w for w in words if w)
 
 
 def expand_parentheses(sent):
@@ -50,7 +52,7 @@ def invert_dict(base):
 
 def tokenize(text):
     # very simple, tokenize punctuation
-    punct = [".", ",", "", "-", "!", "?"]
+    punct = [".", ",", ";", "-", "!", "?"]
     for p in punct:
         text = text.replace(p, " " + p + " ")
     return [w for w in text.split(" ") if w.strip()]
@@ -92,8 +94,6 @@ def resolve_resource_file(res_name):
     # Resource cannot be resolved
     raise FileNotFoundError(res_name)
 
-from padatious.util import tokenize, expand_parentheses, remove_comments
-
 
 def expand_options(sentece):
     sentences = []
@@ -103,20 +103,22 @@ def expand_options(sentece):
     return sentences
 
 
-def expand_keywords(sentece):
+def expand_keywords(sentence):
     kwords = {"required": [], "optional": []}
 
     in_optional = False
-    for exp in expand_parentheses(tokenize(sentece)):
+    for exp in expand_parentheses(tokenize(sentence)):
         if "[" in exp:
             in_optional = True
             required = exp[:exp.index("[")]
             kwords["required"].append(" ".join(required))
             optional = exp[exp.index("[") + 1:]
-            kwords["optional"].append(" ".join(optional).replace("]", "").strip())
+            kwords["optional"].append(
+                " ".join(optional).replace("]", "").strip())
         elif in_optional:
             optional = exp
-            kwords["optional"].append(" ".join(optional).replace("]", "").strip())
+            kwords["optional"].append(
+                " ".join(optional).replace("]", "").strip())
             if "]" in exp:
                 in_optional = False
         else:
@@ -158,8 +160,6 @@ def merge_dict(base, delta, merge_lists=False, skip_empty=False,
             else:
                 base[k] = d
     return base
-
-
 
 
 class MatchStrategy(IntEnum):
@@ -209,7 +209,8 @@ def fuzzy_match(x, against, strategy=MatchStrategy.SIMPLE_RATIO):
     return score
 
 
-def match_one(query, choices, match_func=None, strategy=MatchStrategy.SIMPLE_RATIO):
+def match_one(query, choices, match_func=None,
+              strategy=MatchStrategy.SIMPLE_RATIO):
     """
         Find best match from a list or dictionary given an input
 
@@ -222,7 +223,8 @@ def match_one(query, choices, match_func=None, strategy=MatchStrategy.SIMPLE_RAT
     return match_all(query, choices, match_func, strategy)[0]
 
 
-def match_all(query, choices, match_func=None, strategy=MatchStrategy.SIMPLE_RATIO):
+def match_all(query, choices, match_func=None,
+              strategy=MatchStrategy.SIMPLE_RATIO):
     """
         match scores from a list or dictionary given an input
 
@@ -255,11 +257,10 @@ def match_all(query, choices, match_func=None, strategy=MatchStrategy.SIMPLE_RAT
 if __name__ == "__main__":
     sentences = ['i ( love | like ) mycroft',
                  'mycroft is ( open | free | private )']
-    # for s in sentences:
-    #     print(expand_options(s))
 
-    sentences += ['what is weather like [ in canada | in france | in portugal ]',
-                  'how is weather like [ in { location } ]',
-                  'tell me weather [ at { location } | in { location } ]']
+    sentences += [
+        'what is weather like [ in canada | in france | in portugal ]',
+        'how is weather like [ in { location } ]',
+        'tell me weather [ at { location } | in { location } ]']
     for s in sentences:
         print(expand_keywords(s))
