@@ -7,9 +7,168 @@ from auto_regex import AutoRegex
 from intentBox.lang.en import ENGLISH_STOP_WORDS
 from intentBox.lang.pt import PORTUGUESE_STOP_WORDS
 from intentBox.lang import GENERIC_STOP_WORDS
-from intentBox.segmentation import segment_keywords
+from intentBox.segmentation import get_common_chunks, rake, chunk
 from intentBox.utils import tokenize, normalize, expand_options, \
-    expand_keywords, merge_dict, match_one
+    expand_keywords, merge_dict, match_one, flatten
+
+
+def keyword_start_split(samples):
+    samples = [expand_options(s) for s in samples]
+    samples = flatten(samples)
+    keywords = []
+    samples = [k for k in samples if k]
+    # detect shared utterance starts + split into own keyword
+    starts = {}
+    if len(samples) > 1:
+        for i in range(3):
+            st = list(set([" ".join(k.split(" ")[:3 - i])
+                           for k in samples if k]))
+            counts = {s: len([_ for _ in samples
+                              if _.startswith(s)]) / len(samples)
+                      for s in st}
+            if counts and all(v >= 0.35 for v in counts.values()) and \
+                    not any(c in samples for c in counts.keys()):
+                starts = counts
+                break
+
+    if starts:
+        keywords.append({
+            "name": "start_kw",
+            "required": True,
+            "samples": list(starts.keys())
+        })
+        # update samples to remove starts
+        for idx, s in enumerate(samples):
+            for k in starts:
+                if s.startswith(k):
+                    samples[idx] = s[len(k):].strip()
+
+    # create base keyword
+    if len(samples):
+        keywords.append({
+            "name": "required_kw",
+            "required": True,
+            "samples": list(set(samples))
+        })
+
+    return keywords
+
+
+def keyword_end_split(samples):
+    samples = [expand_options(s) for s in samples]
+    samples = flatten(samples)
+    keywords = []
+    samples = [k for k in samples if k]
+    # detect shared utterance starts + split into own keyword
+    ends = {}
+    if len(samples) > 1:
+        for i in range(3):
+            st = list(set([" ".join(k.split(" ")[-(3 - i):])
+                           for k in samples if k]))
+            counts = {s: len([_ for _ in samples
+                              if _.endswith(s)]) / len(samples)
+                      for s in st}
+            if counts and all(v >= 0.35 for v in counts.values()) and \
+                    not any(c in samples for c in counts.keys()):
+                ends = counts
+                break
+
+    if ends:
+        keywords.append({
+            "name": "end_kw",
+            "required": True,
+            "samples": [" ".join([_ for _ in s.split(" ") if len(_) > 2])
+                        for s in ends.keys()]
+        })
+        # update samples to remove ends
+        for idx, s in enumerate(samples):
+            for k in ends:
+                if s.endswith(k):
+                    samples[idx] = s[:-len(k)].strip()
+
+    # create base keyword
+    if len(samples):
+        keywords.insert(0, {
+            "name": "required_kw",
+            "required": True,
+            "samples": list(set(samples))
+        })
+
+    return keywords
+
+
+def keyword_entity_split(samples, lang="en-us"):
+    keywords = []
+    try:
+        kws = [rake(s, lang=lang)[0][0] for s in samples]
+    except IndexError:
+        kws = []
+
+    kws = list(set([k for k in kws if all(k in s for s in samples)]))
+
+    if not kws:
+        kws = get_common_chunks(samples, lang)
+        kws = list(set([k for k in kws if all(k in s for s in samples)]))
+        if len(kws) > 1:
+            kws = [sorted(kws, key=len, reverse=True)[0]]
+
+    if kws:
+        keywords += [{
+            "name": f"entity_kw_{kws[0]}".replace(" ", "_"),
+            "required": True,
+            "samples": kws
+        }]
+        qs = []
+        hs = []
+        chunked = [chunk(s, delimiters=kws) for s in samples]
+        for ch in chunked:
+            ch = [c for c in ch if c not in kws and len(c) > 1]
+            if lang.startswith("en"):
+                if "ing" in ch:
+                    kws += [k + "ing" for k in kws if not k.endswith("ing")]
+                ch = [c for c in ch if c not in ["ing", "'s", "s"]]
+            if len(ch) == 1:
+                qs += ch
+            elif len(ch) == 2:
+                qs += [ch[0]]
+                hs += [ch[1]]
+
+        qs = [q for q in qs if q not in kws]
+        hs = [q for q in hs if q not in kws]
+        if qs:
+            keywords += [{
+                "name": "start_chunk_kw",
+                "required": True,
+                "samples": list(set(qs))
+            }]
+        if hs:
+            min_ = min(len(ch) for ch in chunked)
+            max_ = max(len(ch) for ch in chunked)
+            keywords += [{
+                "name": "end_chunk_kw",
+                "required": min_ == max_,
+                "samples": list(set(hs))
+            }]
+
+    return keywords or [{
+        "name": "required_kw",
+        "required": True,
+        "samples": samples
+    }]
+
+
+def keyword_split(samples, lang="en-us"):
+    samples = [expand_options(s) for s in samples]
+    samples = flatten(samples)
+    keywords = keyword_start_split(samples)
+    # start keyword detected
+    if len(keywords) == 2:
+        return keywords
+    # fallback to main entity keyword split
+    keywords = keyword_end_split(samples)
+    if len(keywords) == 2:
+        return keywords
+    return keyword_entity_split(samples, lang)
 
 
 class IntentAssistant:
@@ -232,140 +391,95 @@ class IntentAssistant:
         return samples
 
     @staticmethod
-    def samples2keywords(samples, lang=None):
-        rx_kw = IntentAssistant.samples2regex(samples)
+    def samples2keywords(samples, lang="en-us"):
         keywords = []
 
-        # parse required/optional/regex
-        kw = {
-            "name": "required_kw",
-            "required": True,
-            "samples": []
-        }
-        opt_kw = {
-            "name": "optional_kw",
-            "required": False,
-            "samples": []
-        }
+        # expand samples
+        samples = [expand_options(s) for s in samples]
+        samples = flatten(samples)
+
+        # parse required/optional
+        kw_samples = []
+        opt_kw = []
         for s in samples:
             parsed = expand_keywords(s)
-            kw["samples"] += parsed["required"]
-            opt_kw["samples"] += parsed["optional"]
+            kw_samples += parsed["required"]
+            opt_kw += parsed["optional"]
 
-        rx = [r for r in kw["samples"] if "{" in r]
-        opt_rx = [r for r in opt_kw["samples"] if "{" in r]
-        kw["samples"] = list(set([r for r in kw["samples"] if "{" not in r]))
-        opt_kw["samples"] = list(
-            set([r for r in opt_kw["samples"] if "{" not in r]))
-
-        # segment keywords
-        def get_common_kws():
-            s2k = {}
-            raked = []
-            for sample in kw["samples"]:
-                # - if rake is installed it will be used, keywords can span
-                # multiple tokens
-                new_kws = [r[0] for r in segment_keywords(sample, lang=lang)] + \
-                          sample.split(" ")
-                s2k[sample] = list(set([k for k in new_kws if len(k) > 3]))
-                raked += s2k[sample]
-
-            return [k for k in list(set(raked))
-                      if all(k in v for v in s2k.values())]
-
-        common = get_common_kws()
-        if common:
-            # common kwords required by all samples
-            for idx, c in enumerate(common):
-                c = {
-                    "name": f"{c}_ckw{idx}",
-                    "required": True,
-                    "samples": [c]
-                }
-                keywords.append(c)
-
-            # one_of kws
-            one_of_kws = {}
-            parts = []
-            for idx, s in enumerate(kw["samples"]):
-                if len(common) == 1:
-                    pts = s.split(common[0])
-                else:
-                    import re
-                    pattern = f"({'|'.join(common)})"
-                    pts = re.split(pattern, s)
-                pts = [p.strip() for p in pts if p.strip() and p not in common]
-
-                if pts:
-                    parts.append(pts)
-            if parts:
-                total_parts = max(len(p) for p in parts)
-                min_parts = min(len(p) for p in parts)
-                for idz in range(0, total_parts - 1):
-                    if idz not in one_of_kws:
-                        longest = sorted([s[idz] for s in parts], key=len,
-                                         reverse=True)
-                        name = f"{longest[0].replace(' ', '_')}_pkw{idz}"
-                        one_of_kws[idz] = {
-                            "name": name,
-                            "required": True if idz <= min_parts else False,
-                            "samples": [s[idz] for s in parts]
-                        }
-                    else:
-                        one_of_kws[idz]["samples"] += [s[idz] for s in parts]
-
-            for one_of in one_of_kws.values():
-                one_of["samples"] = list(set(one_of["samples"]))
-                print(one_of)
-                keywords.append(one_of)
-
-        else:
-            kw["samples"] = [k for k in kw["samples"] if k]
-            # create base keyword
-            if len(kw["samples"]):
-                keywords.append(kw)
+        kw_samples = list(set([r for r in kw_samples if "{" not in r]))
+        opt_kw = list(set([r for r in opt_kw if "{" not in r]))
 
         # create base optional keyword
-        if len(opt_kw["samples"]):
-            keywords.append(opt_kw)
+        if len(opt_kw):
+            keywords.append({
+                "name": "optional_kw",
+                "required": False,
+                "samples": opt_kw
+            })
+
+        # segment keywords
+        keywords += keyword_split(kw_samples, lang=lang)
+
+        # extract required samples for reference/deduplication
+        rs = flatten([k["samples"] for k in keywords if k["required"]])
 
         # regex keywords
+        rx_kw = IntentAssistant.samples2regex(samples)
+
+        # TODO autoregex has a bug where _ in names are removed
+        # this causes kw extraction in IntentAssistant.samples2regex to be
+        # incorrect
+        rx = flatten([chunk(_, ["{"]) for _ in samples if "{" in _])
+        rx = list(set([_.split("}")[0].strip()
+                       for _ in rx if "}" in _]))
+        kmap = {k.replace("_", ""): k for k in rx}
+        # END TODO
+
         for k, v in rx_kw.items():
-            kw_name = "{ " + k.replace("_rx", "") + " }"
-            for s in opt_rx:
-                if kw_name in s:
-                    kw = {
-                        "name": k,
-                        "required": False,
-                        "regex": True,
-                        "samples": list(set(rx_kw[k]["samples"]))
-                    }
-                    if kw not in keywords:
-                        keywords.append(kw)
+            if v.get("type", "") == "regex":
+                # if kw in all samples -> required
+                required = all("{ " + kmap[k] + " }" in s
+                               or "{" + kmap[k] + "}" in s
+                               for s in samples)
 
-            for s in rx:
+                # add regex keyword
+                keywords.append({
+                    "name": v["name"],
+                    "entity": k,
+                    "required": required,
+                    "regex": True,
+                    "samples": list(set(v["samples"]))
+                })
 
-                if kw_name in s:
-                    kw = {
-                        "name": k,
+                # use non regex chunks as helper_kws
+                s = [chunk(_, ["{ " + kmap[k] + " }", "{" + kmap[k] + "}"])
+                     for _ in samples]
+                s = flatten([[x for x in _ if "{" not in x] for _ in s])
+                s = list(set([" ".join([x for x in _.split(" ") if len(x) > 2])
+                              for _ in s]))
+
+                # filter samples already in required_kw
+                reqs = [_ for _ in s if
+                        all(_ in s for s in samples) and _.strip()
+                        and _ not in rs]
+                opts = [_ for _ in s if _ not in reqs and _.strip()
+                        and _ not in rs]
+
+                # create helper keywords to boost regex matches
+                if len(reqs):
+                    keywords.append({
+                        "name": k + "_rx_helper",
                         "required": True,
-                        "regex": True,
-                        "samples": list(set(rx_kw[k]["samples"]))
-                    }
-                    if rx_kw[k]not in keywords:
-                        keywords.append(rx_kw[k])
+                        "samples": list(set(reqs))
+                    })
+                if len(opts):
+                    keywords.append({
+                        "name": k + "_optional_rx_helper",
+                        "required": False,
+                        "samples": list(set(opts))
+                    })
 
-            helpers = []
-            for idx, kw in enumerate(list(set(helpers))):
-                opt_kw = {
-                    "name": "regex_helper_kw_" + str(idx),
-                    "required": False,
-                    "regex": False,
-                    "samples": [kw]
-                }
-                keywords.append(opt_kw)
-
-        return keywords
+        return [k for k in keywords if k["samples"]]
 
     @staticmethod
     def sample2regex(sample):
@@ -390,7 +504,8 @@ class IntentAssistant:
                     if kw not in kwords:
                         kwords[kw] = {"name": kw + "_rx",
                                       "samples": [],
-                                      "required": all(kw in s for s in samples),
+                                      "required": all(
+                                          kw in s for s in samples),
                                       "type": "regex"}
                     kwords[kw]["samples"] += rx
 
