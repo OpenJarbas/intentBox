@@ -2,6 +2,7 @@ import abc
 import re
 from intentBox.utils import flatten, normalize
 from intentBox.segmenter import Segmenter
+from intentBox.coreference import replace_coreferences
 
 import enum
 
@@ -15,10 +16,12 @@ class IntentStrategy(str, enum.Enum):
 
 
 class IntentExtractor:
-    def __init__(self, lang="en-us", use_markers=True, use_coref=False,
+    def __init__(self, lang="en-us", use_markers=True, solve_corefs=True,
                  config=None, strategy=IntentStrategy.SEGMENT_REMAINDER):
         self.config = config or {}
-        self.segmenter = Segmenter(lang, use_markers, use_coref)
+        self.solve_corefs = solve_corefs
+        self.segmenter = Segmenter(lang=lang, use_markers=use_markers,
+                                   solve_corefs=solve_corefs)
         self.lang = lang
         self.strategy = strategy
 
@@ -184,6 +187,9 @@ class IntentExtractor:
         :param utterance:
         :return:
         """
+        if self.solve_corefs:
+            utterance = replace_coreferences(utterance)
+
         if self.strategy in [IntentStrategy.SEGMENT_REMAINDER,
                              IntentStrategy.SEGMENT]:
             utterances = self.segmenter.segment(utterance)
@@ -225,7 +231,8 @@ class IntentExtractor:
             # if this strategy is selected the segmenter step is skipped
             # and there is only 1 utterance
             else:
-                intents = self.calc_intents(utterance)
+                intents = [intent for ut, intent in
+                            self.calc_intents(utterance).items() if intent]
                 bucket.append(intents)
 
         return flatten(bucket)

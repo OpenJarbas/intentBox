@@ -1,4 +1,4 @@
-from intentBox.coreference import CoreferenceSolver
+from intentBox.coreference import replace_coreferences
 from intentBox.utils import LOG, flatten
 from intentBox.lang.en import SEGMENTATION_MARKERS_EN
 from intentBox.lang.pt import SEGMENTATION_MARKERS_PT
@@ -10,17 +10,11 @@ class Segmenter:
     # this means you need spaces on both sides of the marker
 
     # Add lang markers here for naive segmentation
-    def __init__(self, lang="en-us", use_markers=True, use_coref=False):
+    def __init__(self, lang="en-us", use_markers=True, solve_corefs=False):
         self.lang = lang
         self.use_markers = use_markers
-        self.use_coref = use_coref
+        self.solve_corefs = solve_corefs
         self.segmenter = None
-        self.solver = None
-        if self.use_coref:
-            if not lang.startswith("en"):
-                LOG.error("unsupported coreference resolution language")
-            else:
-                self.solver = CoreferenceSolver()
 
     @staticmethod
     def _extract(text, markers, no_replaces=None):
@@ -73,8 +67,8 @@ class Segmenter:
         return Segmenter.extract_candidates_generic(text)
 
     def segment(self, text):
-        if self.use_coref and self.solver:
-            text = self.solver.replace_coreferences(text)
+        if self.solve_corefs:
+            text = replace_coreferences(text)
         if self.use_markers:
             text = self.extract_candidates(text, self.lang)
         return [s for s in text if s]

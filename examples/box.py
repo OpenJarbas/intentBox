@@ -1,7 +1,7 @@
 from pprint import pprint
-from intentBox.container import IntentBox
+from intentBox import IntentBox, IntentStrategy
 
-intents = IntentBox()
+intents = IntentBox(strategy=IntentStrategy.SEGMENT_REMAINDER)
 
 # padatious intents
 

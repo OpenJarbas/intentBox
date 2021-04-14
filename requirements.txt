@@ -4,5 +4,5 @@ fann2>=1.0.7
 padaos>=0.1.9
 requests
 auto_regex
-pronomial>=0.0.5
+pronomial>=0.0.6
 RAKEkeywords
