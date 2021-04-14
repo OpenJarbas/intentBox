@@ -187,27 +187,43 @@ class IntentExtractor:
         if self.strategy in [IntentStrategy.SEGMENT_REMAINDER,
                              IntentStrategy.SEGMENT]:
             utterances = self.segmenter.segment(utterance)
+            # up to N intents
         else:
             utterances = [utterance]
         prev_ut = ""
         bucket = []
         for utterance in utterances:
+            # calc intent + calc intent again in leftover text
             if self.strategy in [IntentStrategy.REMAINDER,
                                  IntentStrategy.SEGMENT_REMAINDER]:
-                intents = self.intent_remainder(utterance)
+                intents = self.intent_remainder(utterance)  # up to 2 intents
+
+                # use a bigger chunk of the utterance
                 if not intents and prev_ut:
                     # TODO ensure original utterance form
-                    # TODO 2 - lang support
+                    # TODO lang support
                     intents = self.intent_remainder(prev_ut + " " + utterance)
                     if intents:
+                        # replace previous intent match with
+                        # larger utterance segment match
                         bucket[-1] = intents
                         prev_ut = prev_ut + " " + utterance
                 else:
                     prev_ut = utterance
                     bucket.append(intents)
+
+            # calc single intent over full utterance
+            # if this strategy is selected the segmenter step is skipped
+            # and there is only 1 utterance
             elif self.strategy == IntentStrategy.SINGLE_INTENT:
                 intents = [self.calc_intent(utterance)]
                 bucket.append(intents)
+
+            # calc multiple intents over full utterance
+            # "segment+multi" is misleading in the sense that
+            # individual intent engines should do the segmentation
+            # if this strategy is selected the segmenter step is skipped
+            # and there is only 1 utterance
             else:
                 intents = self.calc_intents(utterance)
                 bucket.append(intents)
