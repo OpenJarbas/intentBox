@@ -3,13 +3,24 @@ import re
 from intentBox.utils import flatten, normalize
 from intentBox.segmenter import Segmenter
 
+import enum
+
+
+class IntentStrategy(str, enum.Enum):
+    SINGLE_INTENT = "single"
+    REMAINDER = "remainder"
+    SEGMENT = "segment"
+    SEGMENT_REMAINDER = "segment+remainder"
+    SEGMENT_MULTI = "segment+multi"
+
 
 class IntentExtractor:
     def __init__(self, lang="en-us", use_markers=True, use_coref=False,
-                 config=None):
+                 config=None, strategy=IntentStrategy.SEGMENT_REMAINDER):
         self.config = config or {}
         self.segmenter = Segmenter(lang, use_markers, use_coref)
         self.lang = lang
+        self.strategy = strategy
 
     def get_normalizations(self, utterance, lang=None):
         lang = lang or self.lang
@@ -173,20 +184,32 @@ class IntentExtractor:
         :param utterance:
         :return:
         """
-        utterances = self.segmenter.segment(utterance)
+        if self.strategy in [IntentStrategy.SEGMENT_REMAINDER,
+                             IntentStrategy.SEGMENT]:
+            utterances = self.segmenter.segment(utterance)
+        else:
+            utterances = [utterance]
         prev_ut = ""
         bucket = []
         for utterance in utterances:
-            intents = self.intent_remainder(utterance)
-            if not intents and prev_ut:
-                # TODO ensure original utterance form
-                # TODO 2 - lang support
-                intents = self.intent_remainder(prev_ut + " " + utterance)
-                if intents:
-                    bucket[-1] = intents
-                    prev_ut = prev_ut + " " + utterance
+            if self.strategy in [IntentStrategy.REMAINDER,
+                                 IntentStrategy.SEGMENT_REMAINDER]:
+                intents = self.intent_remainder(utterance)
+                if not intents and prev_ut:
+                    # TODO ensure original utterance form
+                    # TODO 2 - lang support
+                    intents = self.intent_remainder(prev_ut + " " + utterance)
+                    if intents:
+                        bucket[-1] = intents
+                        prev_ut = prev_ut + " " + utterance
+                else:
+                    prev_ut = utterance
+                    bucket.append(intents)
+            elif self.strategy == IntentStrategy.SINGLE_INTENT:
+                intents = [self.calc_intent(utterance)]
+                bucket.append(intents)
             else:
-                prev_ut = utterance
+                intents = self.calc_intents(utterance)
                 bucket.append(intents)
 
         return flatten(bucket)
