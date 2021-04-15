@@ -80,7 +80,7 @@ class IntentExtractor:
     def calc_intents(self, utterance, min_conf=0.5):
         """ segment utterance and return best intent for individual segments
 
-        if confidence is bellow min_conf intent is None
+        if confidence is below min_conf intent is None
 
        UTTERANCE: tell me a joke and say hello
 
@@ -222,8 +222,7 @@ class IntentExtractor:
             # if this strategy is selected the segmenter step is skipped
             # and there is only 1 utterance
             elif self.strategy == IntentStrategy.SINGLE_INTENT:
-                intents = [self.calc_intent(utterance)]
-                bucket.append(intents)
+                bucket.append([self.calc_intent(utterance)])
 
             # calc multiple intents over full utterance
             # "segment+multi" is misleading in the sense that
@@ -232,10 +231,10 @@ class IntentExtractor:
             # and there is only 1 utterance
             else:
                 intents = [intent for ut, intent in
-                            self.calc_intents(utterance).items() if intent]
+                           self.calc_intents(utterance).items()]
                 bucket.append(intents)
 
-        return flatten(bucket)
+        return [i for i in flatten(bucket) if i]
 
     def manifest(self):
         # TODO vocab, skill ids, intent_data
