@@ -6,3 +6,4 @@ requests
 auto_regex
 pronomial>=0.0.6
 RAKEkeywords
+quebra_frases

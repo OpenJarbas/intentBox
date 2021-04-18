@@ -2,15 +2,14 @@ from logging import getLogger
 import os
 from enum import IntEnum, auto
 from difflib import SequenceMatcher
+from quebra_frases import word_tokenize
 
 try:
     import rapidfuzz
 except ImportError:
     rapidfuzz = None
 
-
-
-from intentBox.utils.bracket_expansion import SentenceTreeParser
+from intentBox.utils.bracket_expansion import expand_parentheses
 
 LOG = getLogger("intentBox")
 
@@ -26,36 +25,12 @@ def normalize(text, lang='', remove_articles=False):
     return " ".join(w for w in words if w)
 
 
-def expand_parentheses(sent):
-    """
-    ['1', '(', '2', '|', '3, ')'] -> [['1', '2'], ['1', '3']]
-    For example:
-    Will it (rain|pour) (today|tomorrow|)?
-    ---->
-    Will it rain today?
-    Will it rain tomorrow?
-    Will it rain?
-    Will it pour today?
-    Will it pour tomorrow?
-    Will it pour?
-    Args:
-        sent (list<str>): List of tokens in sentence
-    Returns:
-        list<list<str>>: Multiple possible sentences from original
-    """
-    return SentenceTreeParser(sent).expand_parentheses()
-
-
 def invert_dict(base):
     return {v: k for k, v in base.items()}
 
 
 def tokenize(text):
-    # very simple, tokenize punctuation
-    punct = [".", ",", ";", "-", "!", "?"]
-    for p in punct:
-        text = text.replace(p, " " + p + " ")
-    return [w for w in text.split(" ") if w.strip()]
+    return word_tokenize(text)
 
 
 def resolve_resource_file(res_name):
