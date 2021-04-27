@@ -1,6 +1,6 @@
 import abc
 import re
-from intentBox.utils import flatten, normalize
+from intentBox.utils import flatten, normalize, get_utterance_remainder
 from intentBox.segmenter import Segmenter
 from intentBox.coreference import replace_coreferences
 
@@ -24,6 +24,11 @@ class IntentExtractor:
                                    solve_corefs=solve_corefs)
         self.lang = lang
         self.strategy = strategy
+        self._intent_samples = {}
+
+    @property
+    def intent_samples(self):
+        return self._intent_samples
 
     def get_normalizations(self, utterance, lang=None):
         lang = lang or self.lang

@@ -12,6 +12,12 @@ class IntentBox(IntentExtractor):
         # WARNING might artificially increase confidence of adapt intents and skew results
         self._auto = []
 
+    @property
+    def intent_samples(self):
+        return list(set(self.padaos._intent_samples +
+                        self.padatious._intent_samples +
+                        self.adapt._intent_samples))
+
     def _load_engines(self):
         # TODO plugin system
         self.adapt = AdaptExtractor(config=self.config)
@@ -43,7 +49,8 @@ class IntentBox(IntentExtractor):
         self.register_adapt_entity_from_file(entity_name, file_name)
         self.register_padatious_entity_from_file(entity_name, file_name)
 
-    def register_adapt_intent(self, intent_name, samples=None, optional_samples=None):
+    def register_adapt_intent(self, intent_name, samples=None,
+                              optional_samples=None):
         LOG.info("Registering adapt intent: " + intent_name)
         optional_samples = optional_samples or []
         optional_samples += self._auto
@@ -87,7 +94,8 @@ class IntentBox(IntentExtractor):
         LOG.info("Registering adapt regex file: " + file_name)
         with open(file_name) as f:
             samples = [l.strip() for l in f.readlines() if
-                       l.strip() and not l.startswith("#") and not l.startswith("//")]
+                       l.strip() and not l.startswith(
+                           "#") and not l.startswith("//")]
         for s in samples:
             self.register_adapt_regex_entity(s)
 
@@ -96,7 +104,8 @@ class IntentBox(IntentExtractor):
         LOG.info("Registering adapt entity file: " + file_name)
         with open(file_name) as f:
             samples = [l.strip() for l in f.readlines() if
-                       l.strip() and not l.startswith("#") and not l.startswith("//")]
+                       l.strip() and not l.startswith(
+                           "#") and not l.startswith("//")]
         self.register_adapt_entity(entity_name, samples)
 
     def register_padatious_entity_from_file(self, entity_name, file_name):
@@ -163,7 +172,7 @@ class IntentBox(IntentExtractor):
 
     def calc_intent(self, utterance):
         # TODO plugin system
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip()  # spaces should not mess with exact matches
 
         # best intent
         a = self.adapt.calc_intent(utterance)
@@ -201,14 +210,16 @@ class IntentBox(IntentExtractor):
 
     def manifest(self):
         return {
-            "intent_names": self.adapt.manifest()["intent_names"] + self.padatious.manifest()["intent_names"],
+            "intent_names": self.adapt.manifest()["intent_names"] +
+                            self.padatious.manifest()["intent_names"],
             "adapt_intent_names": self.adapt.manifest()["intent_names"],
             "padaos_intent_names": self.padaos.manifest()["intent_names"],
-            "padatious_intent_names": self.padatious.manifest()["intent_names"],
+            "padatious_intent_names": self.padatious.manifest()[
+                "intent_names"],
         }
 
     def calc_intents(self, utterance, min_conf=0.5):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip()  # spaces should not mess with exact matches
         # segment + best intent per chunk
         bucket = {}
         for ut in self.segmenter.segment(utterance):
@@ -216,7 +227,7 @@ class IntentBox(IntentExtractor):
         return bucket
 
     def calc_intents_list(self, utterance):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip()  # spaces should not mess with exact matches
         # segment + all intents per chunk
         intents = self.adapt.calc_intents_list(utterance)
         p = self.padatious.calc_intents_list(utterance)
@@ -228,7 +239,7 @@ class IntentBox(IntentExtractor):
         return intents
 
     def intent_scores(self, utterance):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip()  # spaces should not mess with exact matches
         return self.padatious.intent_scores(utterance) + \
                self.adapt.intent_scores(utterance) + \
                self.padaos.intent_scores(utterance)

@@ -1,6 +1,6 @@
 from intentBox.parsers.template import IntentExtractor
 from padaos import IntentContainer
-from intentBox.utils import LOG
+from intentBox.utils import LOG, get_utterance_remainder
 
 
 class PadaosExtractor(IntentExtractor):
@@ -27,6 +27,10 @@ class PadaosExtractor(IntentExtractor):
 
     def register_intent(self, intent_name, samples=None):
         samples = samples or [intent_name]
+        if intent_name not in self._intent_samples:
+            self._intent_samples[intent_name] = samples
+        else:
+            self._intent_samples[intent_name] += samples
         self.container.add_intent(intent_name, samples)
         self.registered_intents.append(intent_name)
 
@@ -44,9 +48,12 @@ class PadaosExtractor(IntentExtractor):
         utterance = utterance.strip() # spaces should not mess with exact matches
         intent = self.container.calc_intent(utterance)
         if intent["name"]:
+            remainder = get_utterance_remainder(
+                utterance, samples=self._intent_samples[intent["name"]])
             intent["intent_engine"] = "padaos"
             intent["intent_type"] = intent.pop("name")
             intent["utterance"] = utterance
+            intent["utterance_remainder"] = remainder
             modifier = len(self.segmenter.segment(utterance))
             intent["conf"] = 1 / modifier - 0.1
             return intent

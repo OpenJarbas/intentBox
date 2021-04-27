@@ -2,7 +2,7 @@ from logging import getLogger
 import os
 from enum import IntEnum, auto
 from difflib import SequenceMatcher
-from quebra_frases import word_tokenize
+from quebra_frases import get_exclusive_chunks, word_tokenize, flatten
 
 try:
     import rapidfuzz
@@ -13,7 +13,13 @@ from intentBox.utils.bracket_expansion import expand_parentheses
 
 LOG = getLogger("intentBox")
 
-flatten = lambda l: [item for sublist in l for item in sublist]
+
+def get_utterance_remainder(utterance, samples, as_string=True):
+    chunks = get_exclusive_chunks([utterance] + samples)
+    words = [t for t in word_tokenize(utterance) if t in chunks]
+    if as_string:
+        return " ".join(words)
+    return words
 
 
 def normalize(text, lang='', remove_articles=False):
@@ -70,19 +76,14 @@ def resolve_resource_file(res_name):
     raise FileNotFoundError(res_name)
 
 
-def expand_options(sentece):
-    sentences = []
-    sentece = sentece.replace("[", "(").replace("]", "| )")
-    for exp in expand_parentheses(tokenize(sentece)):
-        sentences.append(" ".join(exp).replace("(", "[").replace(")", "]"))
-    return sentences
+expand_options = expand_parentheses
 
 
 def expand_keywords(sentence):
     kwords = {"required": [], "optional": []}
 
     in_optional = False
-    for exp in expand_parentheses(tokenize(sentence)):
+    for exp in expand_parentheses(sentence):
         if "[" in exp:
             in_optional = True
             required = exp[:exp.index("[")]
@@ -97,7 +98,7 @@ def expand_keywords(sentence):
             if "]" in exp:
                 in_optional = False
         else:
-            kwords["required"].append(" ".join(exp))
+            kwords["required"].append("".join(exp))
     return kwords
 
 

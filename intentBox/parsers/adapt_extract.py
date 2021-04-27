@@ -1,5 +1,5 @@
 from intentBox.parsers.template import IntentExtractor
-from intentBox.utils import LOG, normalize
+from intentBox.utils import LOG, normalize, get_utterance_remainder
 import time
 from adapt.intent import IntentBuilder
 from adapt.context import ContextManagerFrame
@@ -182,6 +182,9 @@ class AdaptExtractor(IntentExtractor):
                 intent["conf"] = intent.pop("confidence")
                 intent["utterance"] = utterance
                 intent["intent_engine"] = "adapt"
+                remainder = get_utterance_remainder(utterance,
+                                                    samples=matches)
+                intent["utterance_remainder"] = remainder
                 return intent
         return {"conf": 0, "intent_type": "unknown", "entities": {}, "utterance": utterance, "intent_engine": "adapt"}
 
@@ -215,6 +218,9 @@ class AdaptExtractor(IntentExtractor):
                     intent["conf"] = intent.pop("confidence")
                     intent["utterance"] = ut
                     intent["intent_engine"] = "adapt"
+                    remainder = get_utterance_remainder(utterance,
+                                                        samples=matches)
+                    intent["utterance_remainder"] = remainder
                     if intent["conf"] >= min_conf:
                         bucket[ut] += [intent]
 
@@ -235,6 +241,9 @@ class AdaptExtractor(IntentExtractor):
                 intent["conf"] = intent.pop("confidence")
                 intent["intent_engine"] = "adapt"
                 intent["utterance"] = utterance
+                remainder = get_utterance_remainder(utterance,
+                                                    samples=matches)
+                intent["utterance_remainder"] = remainder
                 bucket += [intent]
         return bucket
 

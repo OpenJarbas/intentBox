@@ -2,7 +2,7 @@ from padatious import IntentContainer
 from os.path import join, expanduser
 from threading import Lock
 from intentBox.parsers.template import IntentExtractor
-from intentBox.utils import LOG
+from intentBox.utils import LOG, get_utterance_remainder
 
 
 class PadatiousExtractor(IntentExtractor):
@@ -36,6 +36,10 @@ class PadatiousExtractor(IntentExtractor):
 
     def register_intent(self, intent_name, samples=None, reload_cache=True):
         samples = samples or [intent_name]
+        if intent_name not in self._intent_samples:
+            self._intent_samples[intent_name] = samples
+        else:
+            self._intent_samples[intent_name] += samples
         with self.lock:
             self.container.add_intent(intent_name, samples,
                                   reload_cache=reload_cache)
@@ -66,6 +70,10 @@ class PadatiousExtractor(IntentExtractor):
         except Exception as e:
             LOG.exception(e)
 
+    def _get_remainder(self, intent, utterance):
+        return get_utterance_remainder(utterance,
+                                       samples=self._intent_samples[intent["name"]])
+
     def calc_intent(self, utterance, min_conf=None):
         min_conf = min_conf or self.config.get("padatious_min_conf", 0.65)
         utterance = utterance.strip()  # spaces should not mess with exact matches
@@ -74,10 +82,12 @@ class PadatiousExtractor(IntentExtractor):
         if intent["conf"] < min_conf:
             return {"intent_type": "unknown", "entities": {}, "conf": 0,
                     "utterance": utterance}
+        intent["utterance_remainder"] = self._get_remainder(intent, utterance)
         intent["entities"] = intent.pop("matches")
         intent["intent_engine"] = "padatious"
         intent["intent_type"] = intent.pop("name")
         intent["utterance"] = intent.pop("sent")
+
         if isinstance(intent["utterance"], list):
             intent["utterance"] = " ".join(intent["utterance"])
         return intent
@@ -86,6 +96,7 @@ class PadatiousExtractor(IntentExtractor):
         utterance = utterance.strip()  # spaces should not mess with exact matches
         intents = [i.__dict__ for i in self.container.calc_intents(utterance)]
         for idx, intent in enumerate(intents):
+            intent["utterance_remainder"] = self._get_remainder(intent, utterance)
             intents[idx]["entities"] = intents[idx].pop("matches")
             intents[idx]["intent_type"] = intents[idx].pop("name")
             intent["intent_engine"] = "padatious"
