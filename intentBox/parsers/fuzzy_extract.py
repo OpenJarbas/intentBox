@@ -3,9 +3,10 @@ from intentBox.utils import LOG, match_one, MatchStrategy, word_tokenize
 
 
 class FuzzyExtractor(IntentExtractor):
-    def __init__(self, strategy=MatchStrategy.SIMPLE_RATIO, *args, **kwargs):
+    def __init__(self, fuzzy_strategy=MatchStrategy.SIMPLE_RATIO, *args,
+                 **kwargs):
         super().__init__(*args, **kwargs)
-        self.strategy = strategy
+        self.fuzzy_strategy = fuzzy_strategy
         self.registered_intents = []
         self.registered_entities = {}
 
@@ -55,11 +56,12 @@ class FuzzyExtractor(IntentExtractor):
         scores = {}
         for intent in self.registered_intents:
             samples = self.intent_samples[intent]
-            sent, score = match_one(sentence, samples)
+            sent, score = match_one(sentence, samples,
+                                    strategy=self.fuzzy_strategy)
             scores[intent] = {"best_match": sent,
                               "conf": score,
                               "intent_engine": "fuzzy",
-                              "match_strategy": self.strategy,
+                              "match_strategy": self.fuzzy_strategy,
                               "utterance": sentence,
                               "utterance_remainder":
                                   self.get_utterance_remainder(sentence, sent),
@@ -72,11 +74,12 @@ class FuzzyExtractor(IntentExtractor):
         best_intent = None
         for intent in self.registered_intents:
             samples = self.intent_samples[intent]
-            sent, score = match_one(sentence, samples)
+            sent, score = match_one(sentence, samples,
+                                    strategy=self.fuzzy_strategy)
             scores[intent] = {"best_match": sent,
                               "conf": score,
                               "intent_engine": "fuzzy",
-                              "match_strategy": self.strategy,
+                              "match_strategy": self.fuzzy_strategy,
                               "utterance": sentence,
                               "utterance_remainder":
                                   self.get_utterance_remainder(sentence, sent),
