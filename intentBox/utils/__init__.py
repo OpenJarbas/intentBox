@@ -76,7 +76,24 @@ def resolve_resource_file(res_name):
     raise FileNotFoundError(res_name)
 
 
-expand_options = expand_parentheses
+def expand_options(sent, as_strings=True):
+    """
+    ['1', '(', '2', '|', '3, ')'] -> [['1', '2'], ['1', '3']]
+    For example:
+    Will it (rain|pour) (today|tomorrow|)?
+    ---->
+    Will it rain today?
+    Will it rain tomorrow?
+    Will it rain?
+    Will it pour today?
+    Will it pour tomorrow?
+    Will it pour?
+    Args:
+        sent (list<str>): List of sentence in sentence
+    Returns:
+        list<list<str>>: Multiple possible sentences from original
+    """
+    return expand_parentheses(sent, as_strings)
 
 
 def expand_keywords(sentence):

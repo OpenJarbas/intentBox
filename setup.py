@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='intentBox',
-    version='0.2a11',
+    version='0.2a12',
     packages=['intentBox',
               'intentBox.coreference',
               'intentBox.intent_assistant',

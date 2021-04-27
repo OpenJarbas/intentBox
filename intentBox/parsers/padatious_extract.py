@@ -71,8 +71,10 @@ class PadatiousExtractor(IntentExtractor):
             LOG.exception(e)
 
     def _get_remainder(self, intent, utterance):
-        return get_utterance_remainder(utterance,
-                                       samples=self._intent_samples[intent["name"]])
+        if intent["name"] in self.intent_samples:
+            return get_utterance_remainder(
+                utterance, samples=self.intent_samples[intent["name"]])
+        return utterance
 
     def calc_intent(self, utterance, min_conf=None):
         min_conf = min_conf or self.config.get("padatious_min_conf", 0.65)

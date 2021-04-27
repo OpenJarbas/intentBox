@@ -13,8 +13,7 @@ from intentBox.utils import tokenize, normalize, expand_options, \
 
 
 def keyword_start_split(samples):
-    samples = [expand_options(s) for s in samples]
-    samples = flatten(samples)
+    samples = flatten([expand_options(s, as_strings=True) for s in samples])
     keywords = []
     samples = [k for k in samples if k]
     # detect shared utterance starts + split into own keyword
@@ -55,8 +54,7 @@ def keyword_start_split(samples):
 
 
 def keyword_end_split(samples):
-    samples = [expand_options(s) for s in samples]
-    samples = flatten(samples)
+    samples = flatten([expand_options(s, as_strings=True) for s in samples])
     keywords = []
     samples = [k for k in samples if k]
     # detect shared utterance starts + split into own keyword
@@ -158,8 +156,7 @@ def keyword_entity_split(samples, lang="en-us"):
 
 
 def keyword_split(samples, lang="en-us"):
-    samples = [expand_options(s) for s in samples]
-    samples = flatten(samples)
+    samples = flatten([expand_options(s, as_strings=True) for s in samples])
     keywords = keyword_start_split(samples)
     # start keyword detected
     if len(keywords) == 2:
@@ -351,7 +348,7 @@ class IntentAssistant:
                     print(f"WARNING: missing {kw}.voc")
                 else:
                     for s in list(kw_samples):
-                        expanded_samples += expand_options(s)
+                        expanded_samples += expand_options(s, as_strings=True)
                 if not len(samples):
                     samples = expanded_samples
                 else:
@@ -366,7 +363,7 @@ class IntentAssistant:
                     print(f"WARNING: missing {kw}.voc")
                 else:
                     for s in list(kw_samples):
-                        expanded_samples += expand_options(s)
+                        expanded_samples += expand_options(s, as_strings=True)
                 if not len(samples):
                     samples = expanded_samples + ["\n"]
                 elif expanded_samples:
@@ -380,7 +377,7 @@ class IntentAssistant:
                         print(f"WARNING: missing {kw2}.voc")
                     else:
                         for s in kw_samples2:
-                            expanded_samples += expand_options(s)
+                            expanded_samples += expand_options(s, as_strings=True)
                 if len(samples):
                     samples = [f"{s} {s2}" for s in samples
                                for s2 in expanded_samples]
@@ -395,8 +392,8 @@ class IntentAssistant:
         keywords = []
 
         # expand samples
-        samples = [expand_options(s) for s in samples]
-        samples = flatten(samples)
+        samples = flatten([expand_options(s, as_strings=True)
+                           for s in samples])
 
         # parse required/optional
         kw_samples = []
@@ -424,6 +421,7 @@ class IntentAssistant:
         rs = flatten([k["samples"] for k in keywords if k["required"]])
 
         # regex keywords
+        print(samples)
         rx_kw = IntentAssistant.samples2regex(samples)
 
         # TODO autoregex has a bug where _ in names are removed
@@ -487,7 +485,7 @@ class IntentAssistant:
         kwords = {}
 
         # expand parentheses into multiple samples
-        samples = expand_options(sample)
+        samples = expand_options(sample, as_strings=True)
         # create regex for variables - {some var}
 
         for s in samples:
@@ -690,7 +688,7 @@ class IntentAssistant:
             samples = []
             ents = []
             for sent in self.intents[intent_name]:
-                samples += expand_options(sent)
+                samples += expand_options(sent, as_strings=True)
             for ent in AutoRegex.get_unique_kwords(self.intents[intent_name]):
                 if self.entities.get(ent):
                     ents.append({ent: self.entities[ent]})
@@ -720,11 +718,11 @@ class IntentAssistant:
                             ents[ent] = self.entities[ent]
                             for valid in self.entities.get(ent, []):
                                 samples += [s.replace("{ " + ent + " }", valid)
-                                            for s in expand_options(sent)]
+                                            for s in expand_options(sent, as_strings=True)]
                         samples += [s.replace("{ " + ent + " }", "*") for s in
-                                    expand_options(sent)]
+                                    expand_options(sent, as_strings=True)]
                 else:
-                    samples += expand_options(sent)
+                    samples += expand_options(sent, as_strings=True)
 
             intents[intent_name] = [{
                 "samples": list(set(samples)),
