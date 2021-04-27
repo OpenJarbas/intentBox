@@ -1,5 +1,6 @@
-from intentBox.adapt_extract import AdaptExtractor
-from intentBox.padaos_extract import PadaosExtractor
+from intentBox.parsers.adapt_extract import AdaptExtractor
+from intentBox.parsers.padaos_extract import PadaosExtractor
+from intentBox.parsers.fuzzy_extract import FuzzyExtractor
 from intentBox.parsers.template import IntentExtractor
 from intentBox.utils import LOG, resolve_resource_file
 
@@ -20,6 +21,7 @@ class IntentBox(IntentExtractor):
 
     def _load_engines(self):
         # TODO plugin system
+        self.fuzzy = FuzzyExtractor(config=self.config)
         self.adapt = AdaptExtractor(config=self.config)
         self.padaos = PadaosExtractor(config=self.config)
         try:
@@ -27,11 +29,11 @@ class IntentBox(IntentExtractor):
             self.padatious = PadatiousExtractor(config=self.config)
         except ImportError:
             # padatious not installed (optional)
-            # use a dummy engine
-            self.padatious = IntentExtractor(config=self.config)
+            # use padaos as fallback (exact matches only)
+            self.padatious = self.padaos
 
         self.adapt.segmenter = self.padaos.segmenter = \
-            self.padatious.segmenter = self.segmenter
+            self.padatious.segmenter = self.fuzzy.segmenter = self.segmenter
 
     @property
     def context_manager(self):
@@ -75,6 +77,14 @@ class IntentBox(IntentExtractor):
     def register_padatious_entity(self, entity_name, samples=None):
         LOG.info("Registering padatious entity: " + entity_name)
         self.padatious.register_entity(entity_name, samples)
+
+    def register_fuzzy_intent(self, intent_name, samples=None):
+        LOG.info("Registering fuzzy intent: " + intent_name)
+        self.fuzzy.register_intent(intent_name, samples)
+
+    def register_fuzzy_entity(self, entity_name, samples=None):
+        LOG.info("Registering fuzzy entity: " + entity_name)
+        self.fuzzy.register_entity(entity_name, samples)
 
     def register_padaos_entity(self, entity_name, samples=None):
         LOG.info("Registering padaos entity: " + entity_name)
@@ -149,26 +159,44 @@ class IntentBox(IntentExtractor):
         self.register_adapt_entity_from_file(intent_name, file_name)
         self.register_adapt_intent(intent_name)
 
+    def register_fuzzy_entity_from_file(self, entity_name, file_name):
+        file_name = resolve_resource_file(file_name)
+        LOG.info("Registering fuzzy entity file: " + file_name)
+        try:
+            self.fuzzy.register_entity_from_file(entity_name, file_name)
+        except Exception as e:
+            LOG.error("Could not register file: " + file_name)
+
+    def register_fuzzy_intent_from_file(self, intent_name, file_name):
+        file_name = resolve_resource_file(file_name)
+        LOG.info("Registering fuzzy intent file: " + file_name)
+        self.fuzzy.register_intent_from_file(intent_name, file_name)
+
     def register_intent(self, name, samples=None, optional_samples=None):
         if optional_samples:
             self.register_adapt_intent(name, samples, optional_samples)
         else:
             self.register_padatious_intent(name, samples)
             self.register_padaos_intent(name, samples)
+            self.register_fuzzy_intent(name, samples)
 
     def detach_intent(self, intent_name):
         self.adapt.detach_intent(intent_name)
         self.padatious.detach_intent(intent_name)
+        self.padaos.detach_intent(intent_name)
+        self.fuzzy.detach_intent(intent_name)
 
     def detach_skill(self, skill_id):
         self.adapt.detach_skill(skill_id)
         self.padatious.detach_skill(skill_id)
         self.padaos.detach_skill(skill_id)
+        self.fuzzy.detach_skill(skill_id)
 
     def register_entity(self, name, samples=None):
         self.register_adapt_entity(name, samples)
         self.register_padatious_entity(name, samples)
         self.register_padaos_entity(name, samples)
+        self.register_fuzzy_entity(name, samples)
 
     def calc_intent(self, utterance):
         # TODO plugin system
@@ -190,6 +218,10 @@ class IntentBox(IntentExtractor):
 
         LOG.debug("Padaos match: {intent}".format(intent=p2))
 
+        f = self.fuzzy.calc_intent(utterance)
+
+        LOG.debug("Fuzzy match: {intent}".format(intent=f))
+
         if p2 and p2["conf"] >= 0.8:
             return p2
         if a and a["conf"] >= 0.7:
@@ -200,6 +232,8 @@ class IntentBox(IntentExtractor):
             return a
         if p and p["conf"] > 0.6:  # lots of false positives on 0.5 range
             return p
+        if f and f["conf"] > 0.8:
+            return f
         if a and a["conf"]:  # adapt regex/context is often low confidence
             return a
         if p2 and p2["conf"] > 0.3:
@@ -232,10 +266,13 @@ class IntentBox(IntentExtractor):
         intents = self.adapt.calc_intents_list(utterance)
         p = self.padatious.calc_intents_list(utterance)
         p2 = self.padaos.calc_intents_list(utterance)
+        f = self.fuzzy.calc_intents_list(utterance)
         for ut in p:
             intents[ut] += p[ut]
         for ut in p2:
             intents[ut] += p2[ut]
+        for ut in f:
+            intents[ut] += f[ut]
         return intents
 
     def intent_scores(self, utterance):

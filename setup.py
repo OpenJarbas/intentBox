@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='intentBox',
-    version='0.2a12',
+    version='0.2a13',
     packages=['intentBox',
               'intentBox.coreference',
               'intentBox.intent_assistant',
@@ -19,7 +19,7 @@ setup(
     author_email='jarbasai@mailfence.com',
     extras_require={
         "extras": ["requests", "padatious>=0.4.6", "fann2>=1.0.7",
-                   "pronomial>=0.0.6", "RAKEkeywords"]
+                   "pronomial>=0.0.8", "RAKEkeywords"]
     },
     description='chatterbox intent parser, extract multiple intents from a single utterance '
 )
