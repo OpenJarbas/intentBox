@@ -1,9 +1,10 @@
 import abc
 import re
-from intentBox.utils import flatten, normalize, get_utterance_remainder
+from adapt.context import ContextManagerFrame
+from intentBox.utils import flatten, normalize, LOG
 from intentBox.segmenter import Segmenter
 from intentBox.coreference import replace_coreferences
-
+import time
 import enum
 
 
@@ -13,6 +14,122 @@ class IntentStrategy(str, enum.Enum):
     SEGMENT = "segment"
     SEGMENT_REMAINDER = "segment+remainder"
     SEGMENT_MULTI = "segment+multi"
+
+
+class ContextManager:
+    """
+    ContextManager
+    Use to track context throughout the course of a conversational session.
+    How to manage a session's lifecycle is not captured here.
+    """
+
+    def __init__(self, timeout):
+        self.frame_stack = []
+        self.timeout = timeout * 60  # minutes to seconds
+
+    def clear_context(self):
+        self.frame_stack = []
+
+    def remove_context(self, context_id):
+        for context, ts in list(self.frame_stack):
+            ents = context.entities[0].get('data', [])
+            for e in ents:
+                if context_id == e:
+                    self.frame_stack.remove((context, ts))
+
+    def inject_context(self, entity, metadata=None):
+        """
+        Args:
+            entity(object): Format example...
+                               {'data': 'Entity tag as <str>',
+                                'key': 'entity proper name as <str>',
+                                'confidence': <float>'
+                               }
+            metadata(object): dict, arbitrary metadata about entity injected
+        """
+        metadata = metadata or {}
+        try:
+            if len(self.frame_stack) > 0:
+                top_frame = self.frame_stack[0]
+            else:
+                top_frame = None
+            if top_frame and top_frame[0].metadata_matches(metadata):
+                top_frame[0].merge_context(entity, metadata)
+            else:
+                frame = ContextManagerFrame(entities=[entity],
+                                            metadata=metadata.copy())
+                self.frame_stack.insert(0, (frame, time.time()))
+        except (IndexError, KeyError):
+            pass
+        except Exception as e:
+            LOG.exception(e)
+
+    def get_context(self, max_frames=5, missing_entities=None):
+        """ Constructs a list of entities from the context.
+
+        Args:
+            max_frames(int): maximum number of frames to look back
+            missing_entities(list of str): a list or set of tag names,
+            as strings
+
+        Returns:
+            list: a list of entities
+
+        """
+        try:
+            missing_entities = missing_entities or []
+
+            relevant_frames = [frame[0] for frame in self.frame_stack if
+                               time.time() - frame[1] < self.timeout]
+
+            if not max_frames or max_frames > len(relevant_frames):
+                max_frames = len(relevant_frames)
+
+            missing_entities = list(missing_entities)
+
+            context = []
+            last = ''
+            depth = 0
+            for i in range(max_frames):
+                frame_entities = [entity.copy() for entity in
+                                  relevant_frames[i].entities]
+                for entity in frame_entities:
+                    entity['confidence'] = entity.get('confidence', 1.0) \
+                                           / (2.0 + depth)
+                context += frame_entities
+
+                # Update depth
+                if entity['origin'] != last or entity['origin'] == '':
+                    depth += 1
+                last = entity['origin']
+            result = []
+            if len(missing_entities) > 0:
+
+                for entity in context:
+                    if entity.get('data') in missing_entities:
+                        result.append(entity)
+                        # NOTE: this implies that we will only ever get one
+                        # of an entity kind from context, unless specified
+                        # multiple times in missing_entities. Cannot get
+                        # an arbitrary number of an entity kind.
+                        missing_entities.remove(entity.get('data'))
+            else:
+                result = context
+
+            # Only use the latest instance of each keyword
+            stripped = []
+            processed = []
+            for f in result:
+                keyword = f['data'][0][1]
+                if keyword not in processed:
+                    stripped.append(f)
+                    processed.append(keyword)
+            result = stripped
+        except Exception as e:
+            LOG.exception(e)
+            return []
+        #LOG.debug("Adapt Context: {}".format(result))
+        return result
 
 
 class IntentExtractor:
@@ -25,6 +142,19 @@ class IntentExtractor:
         self.lang = lang
         self.strategy = strategy
         self._intent_samples = {}
+        self.registered_intents = []
+        self.registered_entities = {}
+        # Context related initializations
+        # the context manager is from adapt, however it can be used by any
+        # intent engine, in a future PR this will be generalized using
+        # ContextManager.get_context and ContextManager.inject_context in
+        # the self.calc methods
+        self.context_config = self.config.get('context', {})
+        self.context_keywords = self.context_config.get('keywords', [])
+        self.context_max_frames = self.context_config.get('max_frames', 3)
+        self.context_timeout = self.context_config.get('timeout', 2)
+        self.context_greedy = self.context_config.get('greedy', False)
+        self.context_manager = ContextManager(self.context_timeout)
 
     @property
     def intent_samples(self):
@@ -44,21 +174,30 @@ class IntentExtractor:
                          for i in utterance])
         return [u for u in [norm, norm2, norm3, norm4] if u != utterance]
 
-    @abc.abstractmethod
     def detach_skill(self, skill_id):
-        pass
+        LOG.debug("Detaching padaos skill: " + str(skill_id))
+        remove_list = [i for i in self.registered_intents if skill_id in i]
+        for i in remove_list:
+            self.detach_intent(i)
 
-    @abc.abstractmethod
     def detach_intent(self, intent_name):
-        pass
+        if intent_name in self.registered_intents:
+            LOG.debug("Detaching padaous intent: " + intent_name)
+            self.registered_intents.remove(intent_name)
 
-    @abc.abstractmethod
-    def register_entity(self, name, samples):
-        pass
+    def register_entity(self, entity_name, samples=None):
+        samples = samples or [entity_name]
+        if entity_name not in self.registered_entities:
+            self.registered_entities[entity_name] = []
+        self.registered_entities[entity_name] += samples
 
-    @abc.abstractmethod
-    def register_intent(self, name, samples):
-        pass
+    def register_intent(self, intent_name, samples=None):
+        samples = samples or [intent_name]
+        if intent_name not in self._intent_samples:
+            self._intent_samples[intent_name] = samples
+        else:
+            self._intent_samples[intent_name] += samples
+        self.registered_intents.append(intent_name)
 
     def register_entity_from_file(self, entity_name, file_name):
         with open(file_name) as f:
@@ -242,9 +381,9 @@ class IntentExtractor:
         return [i for i in flatten(bucket) if i]
 
     def manifest(self):
-        # TODO vocab, skill ids, intent_data
         return {
-            "intent_names": []
+            "intent_names": self.registered_intents,
+            "entities": self.registered_entities
         }
 
 

@@ -10,41 +10,6 @@ class FuzzyExtractor(IntentExtractor):
         self.registered_intents = []
         self.registered_entities = {}
 
-    def detach_intent(self, intent_name):
-        if intent_name in self.registered_intents:
-            LOG.debug("Detaching padaous intent: " + intent_name)
-            self.registered_intents.remove(intent_name)
-
-    def detach_skill(self, skill_id):
-        LOG.debug("Detaching padaos skill: " + str(skill_id))
-        remove_list = [i for i in self.registered_intents if skill_id in i]
-        for i in remove_list:
-            self.detach_intent(i)
-
-    def register_entity(self, entity_name, samples=None):
-        samples = samples or [entity_name]
-        if entity_name not in self.registered_entities:
-            self.registered_entities[entity_name] = []
-        self.registered_entities[entity_name] += samples
-
-    def register_intent(self, intent_name, samples=None):
-        samples = samples or [intent_name]
-        if intent_name not in self._intent_samples:
-            self._intent_samples[intent_name] = samples
-        else:
-            self._intent_samples[intent_name] += samples
-        self.registered_intents.append(intent_name)
-
-    def register_entity_from_file(self, entity_name, file_name):
-        with open(file_name) as f:
-            samples = f.read().split("\n")
-        self.register_entity(entity_name, samples)
-
-    def register_intent_from_file(self, intent_name, file_name):
-        with open(file_name) as f:
-            samples = f.read().split("\n")
-        self.register_intent(intent_name, samples)
-
     # matching
     @staticmethod
     def get_utterance_remainder(utterance, best_match):
@@ -123,9 +88,3 @@ class FuzzyExtractor(IntentExtractor):
         for ut in self.segmenter.segment(utterance):
             bucket[ut] = self.filter_intents(ut)
         return bucket
-
-    def manifest(self):
-        # TODO vocab, skill ids, intent_data
-        return {
-            "intent_names": self.registered_intents
-        }
