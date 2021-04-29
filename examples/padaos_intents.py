@@ -1,5 +1,5 @@
 from pprint import pprint
-from intentBox.padaos_extract import PadaosExtractor
+from intentBox.parsers.padaos_extract import PadaosExtractor
 intents = PadaosExtractor()
 
 weather = ["weather"]

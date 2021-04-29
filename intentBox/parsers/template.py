@@ -8,7 +8,7 @@ import time
 import enum
 
 
-class IntentStrategy(str, enum.Enum):
+class IntentDeterminationStrategy(str, enum.Enum):
     SINGLE_INTENT = "single"
     REMAINDER = "remainder"
     SEGMENT = "segment"
@@ -134,7 +134,7 @@ class ContextManager:
 
 class IntentExtractor:
     def __init__(self, lang="en-us", use_markers=True, solve_corefs=True,
-                 config=None, strategy=IntentStrategy.SEGMENT_REMAINDER):
+                 config=None, strategy=IntentDeterminationStrategy.SEGMENT_REMAINDER):
         self.config = config or {}
         self.solve_corefs = solve_corefs
         self.segmenter = Segmenter(lang=lang, use_markers=use_markers,
@@ -170,19 +170,16 @@ class IntentExtractor:
                           lang=lang)
         norm3 = re.sub(r'[^\w]', ' ', utterance)
         norm4 = ''.join([i if 64 < ord(i) < 128 or ord(i) == 32
-                         else ''
-                         for i in utterance])
+                         else '' for i in utterance])
         return [u for u in [norm, norm2, norm3, norm4] if u != utterance]
 
     def detach_skill(self, skill_id):
-        LOG.debug("Detaching padaos skill: " + str(skill_id))
         remove_list = [i for i in self.registered_intents if skill_id in i]
         for i in remove_list:
             self.detach_intent(i)
 
     def detach_intent(self, intent_name):
         if intent_name in self.registered_intents:
-            LOG.debug("Detaching padaous intent: " + intent_name)
             self.registered_intents.remove(intent_name)
 
     def register_entity(self, entity_name, samples=None):
@@ -264,28 +261,10 @@ class IntentExtractor:
         original_utt = utterance
         while _prev != utterance:
             _prev = utterance
-
             intent = self.calc_intent(utterance)
             if intent:
-                intent["utterance"] = original_utt
-                intent["consumed_utterance"] = utterance
                 intent_bucket += [intent]
-                if intent.get("__tags__"):
-                    # adapt
-                    tags = []
-                    for token in intent["__tags__"]:
-                        # Substitute only whole words matching the token
-                        tags.append(token.get("key", ""))
-                        utterance = re.sub(
-                            r'\b' + token.get("key", "") + r"\b", "",
-                            utterance)
-                    intent["consumed_utterance"] = " ".join(tags)
-                elif len(intent.get("entities", {})):
-                    # padatious
-                    for token in intent["entities"]:
-                        # TODO figure out a decent remainder logic for padatious
-                        pass
-
+                utterance = intent['utterance_remainder']
         return intent_bucket
 
     def intents_remainder(self, utterance, min_conf=0.5):
@@ -334,8 +313,8 @@ class IntentExtractor:
         if self.solve_corefs:
             utterance = replace_coreferences(utterance)
 
-        if self.strategy in [IntentStrategy.SEGMENT_REMAINDER,
-                             IntentStrategy.SEGMENT]:
+        if self.strategy in [IntentDeterminationStrategy.SEGMENT_REMAINDER,
+                             IntentDeterminationStrategy.SEGMENT]:
             utterances = self.segmenter.segment(utterance)
             # up to N intents
         else:
@@ -344,8 +323,8 @@ class IntentExtractor:
         bucket = []
         for utterance in utterances:
             # calc intent + calc intent again in leftover text
-            if self.strategy in [IntentStrategy.REMAINDER,
-                                 IntentStrategy.SEGMENT_REMAINDER]:
+            if self.strategy in [IntentDeterminationStrategy.REMAINDER,
+                                 IntentDeterminationStrategy.SEGMENT_REMAINDER]:
                 intents = self.intent_remainder(utterance)  # up to 2 intents
 
                 # use a bigger chunk of the utterance
@@ -365,7 +344,7 @@ class IntentExtractor:
             # calc single intent over full utterance
             # if this strategy is selected the segmenter step is skipped
             # and there is only 1 utterance
-            elif self.strategy == IntentStrategy.SINGLE_INTENT:
+            elif self.strategy == IntentDeterminationStrategy.SINGLE_INTENT:
                 bucket.append([self.calc_intent(utterance)])
 
             # calc multiple intents over full utterance
@@ -385,5 +364,3 @@ class IntentExtractor:
             "intent_names": self.registered_intents,
             "entities": self.registered_entities
         }
-
-

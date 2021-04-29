@@ -45,17 +45,23 @@ class PadaciosoExtractor(IntentExtractor):
         self.register_intent(intent_name, samples)
 
     def calc_intent(self, utterance, min_conf=0.5):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         intent = self.container.calc_intent(utterance)
         if intent["name"]:
             remainder = get_utterance_remainder(
-                utterance, samples=self._intent_samples[intent["name"]])
+                utterance, samples=self.intent_samples[intent["name"]])
             intent["intent_engine"] = "padacioso"
             intent["intent_type"] = intent.pop("name")
             intent["utterance"] = utterance
             intent["utterance_remainder"] = remainder
-            modifier = len(self.segmenter.segment(utterance))
-            intent["conf"] = 1 / modifier - 0.1
+            entity_text = "".join(v for v in intent["entities"].values())
+            if len(intent["entities"]):
+                ratio = len(entity_text) / len(utterance) / len(intent["entities"])
+            else:
+                ratio = len(entity_text) / len(utterance)
+            ratio += 0.01
+            ratio = ratio / len(self.segmenter.segment(utterance))
+            intent["conf"] = 1 - ratio
             return intent
         return {'conf': 0,
                 'intent_type': 'unknown',
@@ -64,7 +70,7 @@ class PadaciosoExtractor(IntentExtractor):
                 'intent_engine': 'padacioso'}
 
     def intent_scores(self, utterance):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         intents = []
         bucket = self.calc_intents(utterance)
         for utt in bucket:
@@ -75,7 +81,7 @@ class PadaciosoExtractor(IntentExtractor):
         return intents
 
     def calc_intents(self, utterance, min_conf=0.5):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         bucket = {}
         for ut in self.segmenter.segment(utterance):
             intent = self.calc_intent(ut)
@@ -83,7 +89,7 @@ class PadaciosoExtractor(IntentExtractor):
         return bucket
 
     def calc_intents_list(self, utterance):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         bucket = {}
         for ut in self.segmenter.segment(utterance):
             bucket[ut] = self.filter_intents(ut)

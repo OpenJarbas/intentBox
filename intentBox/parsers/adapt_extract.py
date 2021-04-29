@@ -14,6 +14,7 @@ class AdaptExtractor(IntentExtractor):
         samples = samples or [name]
         for kw in samples:
             self.engine.register_entity(kw, name, alias_of=alias_of)
+        super().register_entity(name, samples)
 
     def register_regex_entity(self, regex_str):
         self.engine.register_regex_entity(regex_str)
@@ -26,6 +27,7 @@ class AdaptExtractor(IntentExtractor):
         :param optional_samples: list of optional registered samples (names)
         :return:
         """
+        super().register_entity(name, samples)
         if not samples:
             samples = [name]
             self.register_entity(name, samples)
@@ -40,7 +42,7 @@ class AdaptExtractor(IntentExtractor):
         return intent
 
     def calc_intent(self, utterance):
-        utterance = utterance.strip()  # spaces should not mess with exact matches
+        utterance = utterance.strip()
         if self.normalize:
             utterance = normalize(utterance, self.lang, True)
         for intent in self.engine.determine_intent(utterance, 100,
@@ -48,19 +50,21 @@ class AdaptExtractor(IntentExtractor):
                                                    context_manager=self.context_manager):
             if intent and intent.get('confidence') > 0:
                 intent.pop("target")
-                matches = [k for k in intent.keys() if
-                           k not in ["intent_type", "confidence", "__tags__"]]
+                matches = {k: v for k, v in intent.items() if
+                           k not in ["intent_type", "confidence", "__tags__"]}
                 intent["entities"] = {}
                 for k in matches:
                     intent["entities"][k] = intent.pop(k)
                 intent["conf"] = intent.pop("confidence")
                 intent["utterance"] = utterance
                 intent["intent_engine"] = "adapt"
-                remainder = get_utterance_remainder(utterance,
-                                                    samples=matches)
+
+                remainder = get_utterance_remainder(
+                    utterance, samples=[v for v in matches.values()])
                 intent["utterance_remainder"] = remainder
                 return intent
         return {"conf": 0, "intent_type": "unknown", "entities": {},
+                "utterance_remainder": utterance,
                 "utterance": utterance, "intent_engine": "adapt"}
 
     def calc_intents(self, utterance, min_conf=0.5):
@@ -86,16 +90,17 @@ class AdaptExtractor(IntentExtractor):
                                                        context_manager=self.context_manager):
                 if intent:
                     intent.pop("target")
-                    matches = [k for k in intent.keys() if
-                               k not in ["intent_type", "confidence"]]
+                    matches = {k: v for k, v in intent.items() if
+                               k not in ["intent_type", "confidence",
+                                         "__tags__"]}
                     intent["entities"] = {}
                     for k in matches:
                         intent["entities"][k] = intent.pop(k)
                     intent["conf"] = intent.pop("confidence")
                     intent["utterance"] = ut
                     intent["intent_engine"] = "adapt"
-                    remainder = get_utterance_remainder(utterance,
-                                                        samples=matches)
+                    remainder = get_utterance_remainder(
+                        utterance, samples=[v for v in matches.values()])
                     intent["utterance_remainder"] = remainder
                     if intent["conf"] >= min_conf:
                         bucket[ut] += [intent]
@@ -110,16 +115,17 @@ class AdaptExtractor(IntentExtractor):
                                                    context_manager=self.context_manager):
             if intent:
                 intent.pop("target")
-                matches = [k for k in intent.keys() if
-                           k not in ["intent_type", "confidence"]]
+                matches = {k: v for k, v in intent.items() if
+                           k not in ["intent_type", "confidence", "__tags__"]}
                 intent["entities"] = {}
                 for k in matches:
                     intent["entities"][k] = intent.pop(k)
                 intent["conf"] = intent.pop("confidence")
                 intent["intent_engine"] = "adapt"
                 intent["utterance"] = utterance
-                remainder = get_utterance_remainder(utterance,
-                                                    samples=matches)
+
+                remainder = get_utterance_remainder(
+                    utterance, samples=[v for v in matches.values()])
                 intent["utterance_remainder"] = remainder
                 bucket += [intent]
         return bucket

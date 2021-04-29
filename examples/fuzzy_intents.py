@@ -1,7 +1,7 @@
 from pprint import pprint
-from intentBox.parsers.fuzzy_extract import FuzzyExtractor
+from intentBox.parsers.nebulento_extract import NebulentoExtractor
 
-intents = FuzzyExtractor()
+intents = NebulentoExtractor()
 
 weather = ["weather"]
 hello = ["hey", "hello", "hi", "greetings"]

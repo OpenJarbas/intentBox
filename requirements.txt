@@ -8,3 +8,5 @@ pronomial>=0.0.6
 RAKEkeywords
 quebra_frases>=0.3.1
 padacioso
+palavreado>=0.2.0
+nebulento>=0.1.0

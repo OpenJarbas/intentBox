@@ -1,9 +1,9 @@
 from pprint import pprint
-from intentBox import IntentBox, IntentStrategy
+from intentBox import IntentBox, IntentDeterminationStrategy
 
-intents = IntentBox(strategy=IntentStrategy.SEGMENT_REMAINDER)
+intents = IntentBox(strategy=IntentDeterminationStrategy.SEGMENT_REMAINDER)
 
-# padatious intents
+# sample based intents
 
 weather = ["weather"]
 hello = ["hey", "hello", "hi", "greetings"]
@@ -21,7 +21,7 @@ intents.register_intent("lights_off", lights_off)
 intents.register_intent("play_music", music)
 intents.register_intent("call_person", call)
 
-# adapt intents
+# keyword based intents
 weather = ["weather"]
 hello = ["hey", "hello", "hi", "greetings"]
 name = ["name is"]

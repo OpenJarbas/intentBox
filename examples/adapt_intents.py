@@ -1,4 +1,4 @@
-from intentBox.adapt_extract import AdaptExtractor
+from intentBox.parsers.adapt_extract import AdaptExtractor
 
 from pprint import pprint
 

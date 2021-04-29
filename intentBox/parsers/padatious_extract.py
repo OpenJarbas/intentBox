@@ -78,12 +78,12 @@ class PadatiousExtractor(IntentExtractor):
 
     def calc_intent(self, utterance, min_conf=None):
         min_conf = min_conf or self.config.get("padatious_min_conf", 0.65)
-        utterance = utterance.strip()  # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         with self.lock:
             intent = self.container.calc_intent(utterance).__dict__
         if intent["conf"] < min_conf:
             return {"intent_type": "unknown", "entities": {}, "conf": 0,
-                    "utterance": utterance}
+                    "utterance": utterance, "utterance_remainder": utterance}
         intent["utterance_remainder"] = self._get_remainder(intent, utterance)
         intent["entities"] = intent.pop("matches")
         intent["intent_engine"] = "padatious"
@@ -95,7 +95,7 @@ class PadatiousExtractor(IntentExtractor):
         return intent
 
     def intent_scores(self, utterance):
-        utterance = utterance.strip()  # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         intents = [i.__dict__ for i in self.container.calc_intents(utterance)]
         for idx, intent in enumerate(intents):
             intent["utterance_remainder"] = self._get_remainder(intent, utterance)
@@ -109,7 +109,7 @@ class PadatiousExtractor(IntentExtractor):
 
     def calc_intents(self, utterance, min_conf=None):
         min_conf = min_conf or self.config.get("padatious_min_conf", 0.65)
-        utterance = utterance.strip()  # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         bucket = {}
         for ut in self.segmenter.segment(utterance):
             intent = self.calc_intent(ut)
@@ -120,7 +120,7 @@ class PadatiousExtractor(IntentExtractor):
         return bucket
 
     def calc_intents_list(self, utterance):
-        utterance = utterance.strip()  # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         bucket = {}
         for ut in self.segmenter.segment(utterance):
             bucket[ut] = self.filter_intents(ut)

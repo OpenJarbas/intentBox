@@ -2,8 +2,7 @@ from logging import getLogger
 import os
 from enum import IntEnum, auto
 from difflib import SequenceMatcher
-from quebra_frases import get_exclusive_chunks, word_tokenize, flatten
-
+from quebra_frases import get_exclusive_chunks, word_tokenize, flatten, get_exclusive_tokens
 try:
     import rapidfuzz
 except ImportError:
@@ -15,7 +14,7 @@ LOG = getLogger("intentBox")
 
 
 def get_utterance_remainder(utterance, samples, as_string=True):
-    chunks = get_exclusive_chunks([utterance] + samples)
+    chunks = get_exclusive_tokens([utterance] + samples)
     words = [t for t in word_tokenize(utterance) if t in chunks]
     if as_string:
         return " ".join(words)

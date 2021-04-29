@@ -45,7 +45,7 @@ class PadaosExtractor(IntentExtractor):
         self.register_intent(intent_name, samples)
 
     def calc_intent(self, utterance, min_conf=0.5):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         intent = self.container.calc_intent(utterance)
         if intent["name"]:
             remainder = get_utterance_remainder(
@@ -64,7 +64,7 @@ class PadaosExtractor(IntentExtractor):
                 'intent_engine': 'padaos'}
 
     def intent_scores(self, utterance):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         intents = []
         bucket = self.calc_intents(utterance)
         for utt in bucket:
@@ -75,7 +75,7 @@ class PadaosExtractor(IntentExtractor):
         return intents
 
     def calc_intents(self, utterance, min_conf=0.5):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         bucket = {}
         for ut in self.segmenter.segment(utterance):
             intent = self.calc_intent(ut)
@@ -83,7 +83,7 @@ class PadaosExtractor(IntentExtractor):
         return bucket
 
     def calc_intents_list(self, utterance):
-        utterance = utterance.strip() # spaces should not mess with exact matches
+        utterance = utterance.strip().lower()
         bucket = {}
         for ut in self.segmenter.segment(utterance):
             bucket[ut] = self.filter_intents(ut)

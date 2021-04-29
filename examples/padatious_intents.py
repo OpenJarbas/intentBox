@@ -1,4 +1,4 @@
-from intentBox.padatious_extract import PadatiousExtractor
+from intentBox.parsers.padatious_extract import PadatiousExtractor
 
 from pprint import pprint
 
