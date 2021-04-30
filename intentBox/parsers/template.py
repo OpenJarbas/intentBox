@@ -133,6 +133,9 @@ class ContextManager:
 
 
 class IntentExtractor:
+    keyword_based = False
+    regex_entity_support = False
+
     def __init__(self, lang="en-us", use_markers=True, solve_corefs=True,
                  config=None, strategy=IntentDeterminationStrategy.SEGMENT_REMAINDER):
         self.config = config or {}

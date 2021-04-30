@@ -4,6 +4,8 @@ from intentBox.utils import LOG, get_utterance_remainder
 
 
 class PadaciosoExtractor(IntentExtractor):
+    keyword_based = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.container = IntentContainer()

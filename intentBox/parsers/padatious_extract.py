@@ -6,6 +6,8 @@ from intentBox.utils import LOG, get_utterance_remainder
 
 
 class PadatiousExtractor(IntentExtractor):
+    keyword_based = False
+
     def __init__(self, cache_dir=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # TODO xdg data_dir

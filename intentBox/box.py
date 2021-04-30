@@ -52,55 +52,86 @@ class IntentBox(IntentExtractor):
             self.engine_weights["padatious"] = padatious_config.get("weight", 0.8)
 
     # intentBox interface
-    def register_intent(self, name, samples=None):
-        super().register_intent(name, samples)
+    def register_intent(self, intent_name, samples=None):
         for parser, engine in self.engines.items():
-            if not engine:
+            if not engine or engine.keyword_based:
                 continue
-            self.engines[parser].register_intent(name, samples)
+            self.engines[parser].register_intent(intent_name, samples)
 
     def register_intent_from_file(self, intent_name, file_name):
-        super().register_intent_from_file(intent_name, file_name)
+        with open(file_name) as f:
+            samples = [l.strip() for l in f.readlines() if
+                       l.strip() and not l.startswith(
+                           "#") and not l.startswith("//")]
         if file_name.endswith(".voc") or file_name.endswith(".entity"):
-            self.register_adapt_intent_from_file(intent_name, file_name)
-            self.register_palavreado_intent_from_file(intent_name, file_name)
+            self.register_keyword_intent(intent_name, samples)
         elif file_name.endswith(".rx"):
-            self.register_adapt_regex_from_file(file_name)
-            self.register_palavreado_regex_from_file(file_name)
+            self.register_regex_intent(intent_name, samples)
         else:
-            for parser, engine in self.engines.items():
-                if not engine:
-                    continue
-                self.engines[parser].register_intent_from_file(intent_name,
-                                                               file_name)
+            self.register_intent(intent_name, samples)
 
-    def register_entity(self, name, samples=None):
-        super().register_entity(name, samples)
+    def register_entity(self, entity_name, samples=None):
         for parser, engine in self.engines.items():
             if not engine:
                 continue
-            self.engines[parser].register_entity(name, samples)
+            self.engines[parser].register_entity(entity_name, samples)
+
+    def register_regex_entity(self, intent_name, samples=None):
+        for parser, engine in self.engines.items():
+            if not engine or not engine.regex_entity_support:
+                continue
+            self.engines[parser].register_regex_entity(intent_name,
+                                                       samples)
 
     def register_entity_from_file(self, entity_name, file_name):
-        super().register_entity_from_file(entity_name, file_name)
+        with open(file_name) as f:
+            samples = [l.strip() for l in f.readlines() if
+                       l.strip() and not l.startswith(
+                           "#") and not l.startswith("//")]
         if file_name.endswith(".rx"):
-            self.register_adapt_regex_from_file(file_name)
+            self.register_regex_entity(entity_name, samples)
         else:
-            for k, v in self.engines.items():
-                if v:
-                    self.engines[k].register_entity_from_file(entity_name,
-                                                              file_name)
+            self.register_entity(entity_name, samples)
+
+    def register_regex_entity_from_file(self, entity_name, file_name):
+        with open(file_name) as f:
+            samples = [l.strip() for l in f.readlines() if
+                       l.strip() and not l.startswith(
+                           "#") and not l.startswith("//")]
+        self.register_regex_entity(entity_name, samples)
 
     def register_keyword_intent(self, intent_name, samples=None,
                               optional_samples=None):
         LOG.info("Registering keyword intent: " + intent_name)
-        self.register_adapt_intent(intent_name, samples, optional_samples)
-        self.register_palavreado_intent(intent_name, samples, optional_samples)
+        for parser, engine in self.engines.items():
+            if not engine or not engine.keyword_based:
+                continue
+            self.engines[parser].register_intent(intent_name,
+                                                 samples,
+                                                 optional_samples)
 
     def register_keyword_intent_from_file(self, intent_name, file_name):
         LOG.info("Registering keyword intent file: " + file_name)
-        self.register_adapt_intent_from_file(intent_name, file_name)
-        self.register_palavreado_intent_from_file(intent_name, file_name)
+        with open(file_name) as f:
+            samples = [l.strip() for l in f.readlines() if
+                       l.strip() and not l.startswith(
+                           "#") and not l.startswith("//")]
+        self.register_keyword_intent(intent_name, samples)
+
+    def register_regex_intent(self, intent_name, samples=None):
+        self.register_regex_entity(intent_name, samples)
+        for parser, engine in self.engines.items():
+            if not engine or not engine.regex_entity_support:
+                continue
+            self.engines[parser].register_regex_intent(intent_name,
+                                                       samples)
+
+    def register_regex_intent_from_file(self, intent_name, file_name):
+        with open(file_name) as f:
+            samples = [l.strip() for l in f.readlines() if
+                       l.strip() and not l.startswith(
+                           "#") and not l.startswith("//")]
+        self.register_regex_intent(intent_name, samples)
 
     def detach_intent(self, intent_name):
         super().detach_intent(intent_name)
@@ -198,20 +229,19 @@ class IntentBox(IntentExtractor):
                            "#") and not l.startswith("//")]
         self.register_adapt_entity(entity_name, samples)
 
-    def register_adapt_regex_entity(self, regex_str):
+    def register_adapt_regex_entity(self, entity_name, regex_str):
         LOG.info("Registering adapt regex: " + regex_str)
         if self.engines["adapt"]:
-            self.engines["adapt"].register_regex_entity(regex_str)
+            self.engines["adapt"].register_regex_entity(entity_name, regex_str)
 
-    def register_adapt_regex_from_file(self, file_name):
+    def register_adapt_regex_from_file(self, entity_name, file_name):
         file_name = resolve_resource_file(file_name)
         LOG.info("Registering adapt regex file: " + file_name)
         with open(file_name) as f:
             samples = [l.strip() for l in f.readlines() if
                        l.strip() and not l.startswith(
                            "#") and not l.startswith("//")]
-        for s in samples:
-            self.register_adapt_regex_entity(s)
+        self.register_adapt_regex_entity(entity_name, samples)
 
     ## Palavreado
     def register_palavreado_intent(self, intent_name, samples=None,
@@ -246,19 +276,19 @@ class IntentBox(IntentExtractor):
                            "#") and not l.startswith("//")]
         self.register_palavreado_entity(entity_name, samples)
 
-    def register_palavreado_regex_entity(self, regex_str):
+    def register_palavreado_regex_entity(self, entity_name, regex_str):
         LOG.info("Registering palavreado regex: " + regex_str)
-        self.engines["palavreado"].register_regex_entity(regex_str)
+        self.engines["palavreado"].register_regex_entity(entity_name,
+                                                         regex_str)
 
-    def register_palavreado_regex_from_file(self, file_name):
+    def register_palavreado_regex_from_file(self, entity_name, file_name):
         file_name = resolve_resource_file(file_name)
         LOG.info("Registering palavreado regex file: " + file_name)
         with open(file_name) as f:
             samples = [l.strip() for l in f.readlines() if
                        l.strip() and not l.startswith(
                            "#") and not l.startswith("//")]
-        for s in samples:
-            self.register_palavreado_regex_entity(s)
+        self.register_palavreado_regex_entity(entity_name, samples)
 
     ## Padatious
     def register_padatious_intent(self, intent_name, samples=None):

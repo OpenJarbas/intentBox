@@ -3,39 +3,52 @@ from palavreado import IntentContainer, IntentCreator
 
 
 class PalavreadoExtractor(IntentExtractor):
+    keyword_based = True
+    regex_entity_support = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.intent_builders = {}
+        self.rx_entities = {}
         self.engine = IntentContainer()
 
-    def register_intent(self, name, samples=None, optional_samples=None):
+    def register_regex_entity(self, entity_name, samples):
+        self.rx_entities[entity_name] = samples
+
+    def register_regex_intent(self, intent_name, samples):
+        self.register_regex_entity(intent_name + "_rx", samples)
+        self.register_intent(intent_name, [intent_name + "_rx"])
+
+    def register_intent(self, intent_name, samples=None,
+                        optional_samples=None):
         """
 
-        :param name: intent_name
+        :param intent_name: intent_name
         :param samples: list of required registered entities (names)
         :param optional_samples: list of optional registered samples (names)
         :return:
         """
-        if not samples:
-            samples = [name]
+        samples = samples or []
         optional_samples = optional_samples or []
-
         # structure intent
-        intent = IntentCreator(name)
+        intent = IntentCreator(intent_name)
         for kw in samples:
             intent.require(kw, [])
         for kw in optional_samples:
             intent.optionally(kw, [])
-        self.intent_builders[name] = intent
+        self.intent_builders[intent_name] = intent
         return intent
 
     def calc_intent(self, utterance):
         # update intents with registered entity samples
         for intent_name, intent in self.intent_builders.items():
+            for kw, samples in self.rx_entities.items():
+                if kw in intent.required or kw in intent.optional:
+                    intent.regexes[kw] = samples
             for kw, samples in self.registered_entities.items():
                 if kw in intent.required:
                     intent.required[kw] = samples
-                if kw in intent.optional:
+                elif kw in intent.optional:
                     intent.optional[kw] = samples
             self.engine.add_intent(intent)
         intent = self.engine.calc_intent(utterance)

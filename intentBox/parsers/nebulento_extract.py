@@ -1,9 +1,10 @@
 from intentBox.parsers.template import IntentExtractor
-from intentBox.utils import LOG, match_one, MatchStrategy, word_tokenize
-from nebulento import IntentContainer
+from nebulento import IntentContainer, MatchStrategy
 
 
 class NebulentoExtractor(IntentExtractor):
+    keyword_based = False
+
     def __init__(self, fuzzy_strategy=MatchStrategy.SIMPLE_RATIO, *args,
                  **kwargs):
         super().__init__(*args, **kwargs)

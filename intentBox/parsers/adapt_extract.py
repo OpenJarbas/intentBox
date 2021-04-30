@@ -5,35 +5,48 @@ from adapt.engine import IntentDeterminationEngine
 
 
 class AdaptExtractor(IntentExtractor):
+    keyword_based = True
+    regex_entity_support = True
+
     def __init__(self, normalize=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.normalize = normalize
         self.engine = IntentDeterminationEngine()
 
-    def register_entity(self, name, samples=None):
-        samples = samples or [name]
+    def register_entity(self, entity_name, samples=None):
+        samples = samples or [entity_name]
         for kw in samples:
-            self.engine.register_entity(kw, name)
-        super().register_entity(name, samples)
+            self.engine.register_entity(kw, entity_name)
+        super().register_entity(entity_name, samples)
 
-    def register_regex_entity(self, regex_str):
-        self.engine.register_regex_entity(regex_str)
+    def register_regex_entity(self, entity_name, samples):
+        if isinstance(samples, str):
+            self.engine.register_regex_entity(samples)
+        if isinstance(samples, list):
+            for s in samples:
+                self.engine.register_regex_entity(s)
 
-    def register_intent(self, name, samples=None, optional_samples=None):
+    def register_regex_intent(self, intent_name, samples):
+        self.register_regex_entity(intent_name + "_adapt_rx", samples)
+        self.register_intent(intent_name, [intent_name + "_adapt_rx"])
+
+    def register_intent(self, intent_name, samples=None,
+                        optional_samples=None, rx_samples=None):
         """
 
-        :param name: intent_name
+        :param intent_name: intent_name
         :param samples: list of required registered entities (names)
         :param optional_samples: list of optional registered samples (names)
         :return:
         """
-        super().register_entity(name, samples)
+        super().register_entity(intent_name, samples)
         if not samples:
-            samples = [name]
-            self.register_entity(name, samples)
+            samples = [intent_name]
+            self.register_entity(intent_name, samples)
         optional_samples = optional_samples or []
+
         # structure intent
-        intent = IntentBuilder(name)
+        intent = IntentBuilder(intent_name)
         for kw in samples:
             intent.require(kw)
         for kw in optional_samples:
