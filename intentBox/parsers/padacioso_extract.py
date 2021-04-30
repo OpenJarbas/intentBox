@@ -67,6 +67,7 @@ class PadaciosoExtractor(IntentExtractor):
                 'intent_type': 'unknown',
                 'entities': {},
                 'utterance': utterance,
+                'utterance_remainder': utterance,
                 'intent_engine': 'padacioso'}
 
     def intent_scores(self, utterance):

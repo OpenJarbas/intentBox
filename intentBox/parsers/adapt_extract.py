@@ -10,10 +10,10 @@ class AdaptExtractor(IntentExtractor):
         self.normalize = normalize
         self.engine = IntentDeterminationEngine()
 
-    def register_entity(self, name, samples=None, alias_of=None):
+    def register_entity(self, name, samples=None):
         samples = samples or [name]
         for kw in samples:
-            self.engine.register_entity(kw, name, alias_of=alias_of)
+            self.engine.register_entity(kw, name)
         super().register_entity(name, samples)
 
     def register_regex_entity(self, regex_str):

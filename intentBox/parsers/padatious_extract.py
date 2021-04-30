@@ -83,6 +83,7 @@ class PadatiousExtractor(IntentExtractor):
             intent = self.container.calc_intent(utterance).__dict__
         if intent["conf"] < min_conf:
             return {"intent_type": "unknown", "entities": {}, "conf": 0,
+                    "intent_engine": "padatious",
                     "utterance": utterance, "utterance_remainder": utterance}
         intent["utterance_remainder"] = self._get_remainder(intent, utterance)
         intent["entities"] = intent.pop("matches")

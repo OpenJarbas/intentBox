@@ -61,6 +61,7 @@ class PadaosExtractor(IntentExtractor):
                 'intent_type': 'unknown',
                 'entities': {},
                 'utterance': utterance,
+                'utterance_remainder': utterance,
                 'intent_engine': 'padaos'}
 
     def intent_scores(self, utterance):

@@ -9,9 +9,10 @@ class IntentBox(IntentExtractor):
         self.engines_config = self.config.get("engines") or {}
         # TODO plugin system for arbitrary base engines
         self.engines = {"nebulento": None, "adapt": None, "padacioso": None,
-                        "padaos": None, "padatious": None}
+                        "padaos": None, "padatious": None, "palavreado": None}
         self.engine_weights = {"nebulento": 0.75, "adapt": 1.0, "padacioso": 0.9,
-                               "padaos": 1.0, "padatious": 0.8}
+                               "padaos": 1.0, "padatious": 0.8,
+                               "palavreado": 0.8}
         self._load_engines()
 
     def _load_engines(self):
@@ -90,6 +91,17 @@ class IntentBox(IntentExtractor):
                     self.engines[k].register_entity_from_file(entity_name,
                                                               file_name)
 
+    def register_keyword_intent(self, intent_name, samples=None,
+                              optional_samples=None):
+        LOG.info("Registering keyword intent: " + intent_name)
+        self.register_adapt_intent(intent_name, samples, optional_samples)
+        self.register_palavreado_intent(intent_name, samples, optional_samples)
+
+    def register_keyword_intent_from_file(self, intent_name, file_name):
+        LOG.info("Registering keyword intent file: " + file_name)
+        self.register_adapt_intent_from_file(intent_name, file_name)
+        self.register_palavreado_intent_from_file(intent_name, file_name)
+
     def detach_intent(self, intent_name):
         super().detach_intent(intent_name)
         for k, v in self.engines.items():
@@ -103,11 +115,7 @@ class IntentBox(IntentExtractor):
                 self.engines[k].detach_skill(skill_id)
 
     def calc_intent(self, utterance):
-        # lots of magic numbers below, these try to weight the relative
-        # accuracy of the different parsers
-        utterance = utterance.strip()  # spaces should not mess with exact matches
-        a = p = p2 = p3 = f = None
-
+        utterance = utterance.strip().lower()
         # best intent
         intents = []
         for parser, engine in self.engines.items():
@@ -120,29 +128,6 @@ class IntentBox(IntentExtractor):
         if not intents:
             return None
         return sorted(intents, key=lambda k: k["conf"], reverse=True)[0]
-        if p3 and p3["conf"] >= 0.9:
-            return p
-        if p2 and p2["conf"] >= 0.8:
-            return p2
-        if a and a["conf"] >= 0.7:
-            return a
-        if p and p["conf"] >= 0.8:
-            return p
-        if p3 and p3["conf"] >= 0.7:
-            return p
-        if a and a["conf"] > 0.4 or (a and p and 0 < p["conf"] < a["conf"]):
-            return a
-        if p and p["conf"] > 0.6:  # lots of false positives on 0.5 range
-            return p
-        if f and f["conf"] > 0.8:
-            return f
-        if a and a["conf"]:  # adapt regex/context is often low confidence
-            return a
-        if p2 and p2["conf"] > 0.3:
-            return p2
-        if p and p["conf"] > 0.3:
-            return p
-        return None
 
     def normalize_intent_scores(self, intents):
         for idx, intent in enumerate(intents):
@@ -157,8 +142,8 @@ class IntentBox(IntentExtractor):
             intents[idx]["conf"] = max(0, intents[idx]["conf"] - ratio)
         return intents
 
-    def calc_intents(self, utterance, min_conf=0.5):
-        utterance = utterance.strip()  # spaces should not mess with exact matches
+    def calc_intents(self, utterance, min_conf=0.3):
+        utterance = utterance.strip().lower()
         # segment + best intent per chunk
         bucket = {}
         for ut in self.segmenter.segment(utterance):
@@ -166,7 +151,7 @@ class IntentBox(IntentExtractor):
         return bucket
 
     def calc_intents_list(self, utterance):
-        utterance = utterance.strip()
+        utterance = utterance.strip().lower()
         intents = []
         for parser in self.engines:
             if not self.engines[parser]:
@@ -175,7 +160,7 @@ class IntentBox(IntentExtractor):
         return intents
 
     def intent_scores(self, utterance):
-        utterance = utterance.strip()
+        utterance = utterance.strip().lower()
         intents = []
         for parser in self.engines:
             if not self.engines[parser]:
@@ -199,10 +184,10 @@ class IntentBox(IntentExtractor):
         self.register_adapt_entity_from_file(intent_name, file_name)
         self.register_adapt_intent(intent_name)
 
-    def register_adapt_entity(self, entity_name, samples=None, alias_of=None):
+    def register_adapt_entity(self, entity_name, samples=None):
         LOG.info("Registering adapt entity: " + entity_name)
-        self.engines["adapt"].register_entity(entity_name, samples,
-                                              alias_of=alias_of)
+        if self.engines["adapt"]:
+            self.engines["adapt"].register_entity(entity_name, samples)
 
     def register_adapt_entity_from_file(self, entity_name, file_name):
         file_name = resolve_resource_file(file_name)
@@ -215,7 +200,8 @@ class IntentBox(IntentExtractor):
 
     def register_adapt_regex_entity(self, regex_str):
         LOG.info("Registering adapt regex: " + regex_str)
-        self.engines["adapt"].register_regex_entity(regex_str)
+        if self.engines["adapt"]:
+            self.engines["adapt"].register_regex_entity(regex_str)
 
     def register_adapt_regex_from_file(self, file_name):
         file_name = resolve_resource_file(file_name)
@@ -239,14 +225,17 @@ class IntentBox(IntentExtractor):
     def register_palavreado_intent_from_file(self, intent_name, file_name):
         file_name = resolve_resource_file(file_name)
         LOG.info("Registering palavreado intent file: " + file_name)
-        self.register_adapt_entity_from_file(intent_name, file_name)
-        self.register_adapt_intent(intent_name)
+        if self.engines["palavreado"]:
+            with open(file_name) as f:
+                samples = [l.strip() for l in f.readlines() if
+                           l.strip() and not l.startswith(
+                               "#") and not l.startswith("//")]
+            self.engines["palavreado"].register_intent(intent_name, samples)
 
-    def register_palavreado_entity(self, entity_name, samples=None,
-                                   alias_of=None):
+    def register_palavreado_entity(self, entity_name, samples=None):
         LOG.info("Registering palavreado entity: " + entity_name)
-        self.engines["palavreado"].register_entity(entity_name, samples,
-                                              alias_of=alias_of)
+        if self.engines["palavreado"]:
+            self.engines["palavreado"].register_entity(entity_name, samples)
 
     def register_palavreado_entity_from_file(self, entity_name, file_name):
         file_name = resolve_resource_file(file_name)

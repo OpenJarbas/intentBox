@@ -26,6 +26,7 @@ class NebulentoExtractor(IntentExtractor):
     def calc_intent(self, utterance, min_conf=0.6):
         intent = self.engine.calc_intent(utterance)
         intent["intent_engine"] = "nebulento"
+        intent["intent_type"] = intent.pop("name")
         return intent
 
     def intent_scores(self, utterance):

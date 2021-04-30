@@ -258,7 +258,6 @@ class IntentExtractor:
         :return:
         """
         intent_bucket = []
-        original_utt = utterance
         while _prev != utterance:
             _prev = utterance
             intent = self.calc_intent(utterance)
