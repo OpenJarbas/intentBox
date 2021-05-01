@@ -212,7 +212,7 @@ class TestAll(unittest.TestCase):
         test_engines("turn off the lights, open the door",
                      {'adapt'})
         test_engines("Call mom and tell her hello",
-                     {'padaos', 'nebulento', 'palavreado'})
+                     {'padatious', 'nebulento', 'palavreado'})
         test_engines("tell me a joke and the weather",
                      {'adapt'})
         test_engines("turn on the lights close the door",

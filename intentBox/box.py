@@ -10,7 +10,8 @@ class IntentBox(IntentExtractor):
         # TODO plugin system for arbitrary base engines
         self.engines = {"nebulento": None, "adapt": None, "padacioso": None,
                         "padaos": None, "padatious": None, "palavreado": None}
-        self.engine_weights = {"nebulento": 0.75, "adapt": 1.0, "padacioso": 0.9,
+        self.engine_weights = {"nebulento": 0.75, "adapt": 1.0,
+                               "padacioso": 0.9,
                                "padaos": 1.0, "padatious": 0.8,
                                "palavreado": 0.8}
         self._load_engines()
@@ -18,8 +19,10 @@ class IntentBox(IntentExtractor):
     def _load_engines(self):
         nebulento_config = self.engines_config.get("nebulento") or {}
         if nebulento_config.get("enabled", True):
-            self.engines["nebulento"] = NebulentoExtractor(config=nebulento_config)
-            self.engine_weights["nebulento"] = nebulento_config.get("weight", 0.7)
+            self.engines["nebulento"] = NebulentoExtractor(
+                config=nebulento_config)
+            self.engine_weights["nebulento"] = nebulento_config.get("weight",
+                                                                    0.7)
 
         adapt_config = self.engines_config.get("adapt") or {}
         if adapt_config.get("enabled", True):
@@ -29,8 +32,10 @@ class IntentBox(IntentExtractor):
 
         palavreado_config = self.engines_config.get("palavreado") or {}
         if palavreado_config.get("enabled", False):
-            from intentBox.parsers.palavreado_extract import PalavreadoExtractor
-            self.engines["palavreado"] = PalavreadoExtractor(config=palavreado_config)
+            from intentBox.parsers.palavreado_extract import \
+                PalavreadoExtractor
+            self.engines["palavreado"] = PalavreadoExtractor(
+                config=palavreado_config)
             self.engine_weights["palavreado"] = adapt_config.get("weight", 0.8)
 
         padaos_config = self.engines_config.get("padaos") or {}
@@ -42,14 +47,18 @@ class IntentBox(IntentExtractor):
         padacioso_config = self.engines_config.get("padacioso") or {}
         if padacioso_config.get("enabled", True):
             from intentBox.parsers.padacioso_extract import PadaciosoExtractor
-            self.engines["padacioso"] = PadaciosoExtractor(config=padacioso_config)
-            self.engine_weights["padacioso"] = padacioso_config.get("weight", 0.9)
+            self.engines["padacioso"] = PadaciosoExtractor(
+                config=padacioso_config)
+            self.engine_weights["padacioso"] = padacioso_config.get("weight",
+                                                                    0.9)
 
         padatious_config = self.engines_config.get("padatious") or {}
         if padatious_config.get("enabled", False):
             from intentBox.parsers.padatious_extract import PadatiousExtractor
-            self.engines["padatious"] = PadatiousExtractor(config=padatious_config)
-            self.engine_weights["padatious"] = padatious_config.get("weight", 0.8)
+            self.engines["padatious"] = PadatiousExtractor(
+                config=padatious_config)
+            self.engine_weights["padatious"] = padatious_config.get("weight",
+                                                                    0.95)
 
     # intentBox interface
     def register_intent(self, intent_name, samples=None):
@@ -76,11 +85,11 @@ class IntentBox(IntentExtractor):
                 continue
             self.engines[parser].register_entity(entity_name, samples)
 
-    def register_regex_entity(self, intent_name, samples=None):
+    def register_regex_entity(self, entity_name, samples):
         for parser, engine in self.engines.items():
             if not engine or not engine.regex_entity_support:
                 continue
-            self.engines[parser].register_regex_entity(intent_name,
+            self.engines[parser].register_regex_entity(entity_name,
                                                        samples)
 
     def register_entity_from_file(self, entity_name, file_name):
@@ -101,7 +110,7 @@ class IntentBox(IntentExtractor):
         self.register_regex_entity(entity_name, samples)
 
     def register_keyword_intent(self, intent_name, samples=None,
-                              optional_samples=None):
+                                optional_samples=None):
         LOG.info("Registering keyword intent: " + intent_name)
         for parser, engine in self.engines.items():
             if not engine or not engine.keyword_based:
@@ -145,6 +154,21 @@ class IntentBox(IntentExtractor):
             if v:
                 self.engines[k].detach_skill(skill_id)
 
+    # context handling
+    def add_context(self, entity):
+        for k in self.engines:
+            self.engines[k].context_manager.inject_context(entity)
+
+    def remove_context(self, context):
+        for k in self.engines:
+            self.engines[k].context_manager.remove_context(context)
+
+    def clear_context(self):
+        """ Clears all keywords from context """
+        for k in self.engines:
+            self.engines[k].context_manager.clear_context()
+
+    # intent handling
     def calc_intent(self, utterance):
         utterance = utterance.strip().lower()
         # best intent
@@ -155,7 +179,7 @@ class IntentBox(IntentExtractor):
                 LOG.debug(f"{parser} match: {intent}")
                 intents.append(intent)
         intents = self.normalize_intent_scores(intents)
-        intents =[i for i in intents if i["conf"] >= 0.45]
+        intents = [i for i in intents if i["conf"] >= 0.45]
         if not intents:
             return None
         return sorted(intents, key=lambda k: k["conf"], reverse=True)[0]
@@ -250,7 +274,7 @@ class IntentBox(IntentExtractor):
         optional_samples = optional_samples or []
         if self.engines["palavreado"]:
             self.engines["palavreado"].register_intent(intent_name, samples,
-                                                  optional_samples)
+                                                       optional_samples)
 
     def register_palavreado_intent_from_file(self, intent_name, file_name):
         file_name = resolve_resource_file(file_name)
@@ -370,7 +394,8 @@ class IntentBox(IntentExtractor):
     def register_nebulento_intent_from_file(self, intent_name, file_name):
         file_name = resolve_resource_file(file_name)
         LOG.info("Registering nebulento intent file: " + file_name)
-        self.engines["nebulento"].register_intent_from_file(intent_name, file_name)
+        self.engines["nebulento"].register_intent_from_file(intent_name,
+                                                            file_name)
 
     def register_nebulento_entity(self, entity_name, samples=None):
         LOG.info("Registering nebulento entity: " + entity_name)
@@ -381,6 +406,6 @@ class IntentBox(IntentExtractor):
         LOG.info("Registering nebulento entity file: " + file_name)
         try:
             self.engines["nebulento"].register_entity_from_file(entity_name,
-                                                            file_name)
+                                                                file_name)
         except Exception as e:
             LOG.error("Could not register file: " + file_name)
